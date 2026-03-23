@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java --version)",
+      "Bash(mvn --version)",
+      "Bash(npm --version)",
+      "Bash(ng version:*)",
+      "Bash(java -version)",
+      "Bash(/usr/libexec/java_home -V)",
+      "Bash(npx @angular/cli@19 new frontend --routing --style=scss --skip-git --skip-tests --ssr=false)",
+      "Bash(npx ng:*)",
+      "Bash(npm install:*)",
+      "Bash(npm info:*)",
+      "Bash(node -e \"const v=JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\)\\); console.log\\(v.filter\\(x=>!x.includes\\(''''-''''\\)\\).slice\\(-8\\).join\\(''''\\\\n''''\\)\\)\")",
+      "Bash(node -e \"const v=JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\)\\); console.log\\(v.filter\\(x=>x.startsWith\\(''''21''''\\)\\).slice\\(-3\\).join\\(''''\\\\n''''\\)\\)\")"
+    ]
+  }
+}

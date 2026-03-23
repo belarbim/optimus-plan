@@ -1,0 +1,44 @@
+/* Global styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+/* Utility classes */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Ant Design overrides */
+.ant-layout-content {
+  overflow: auto;
+}
+
+.ant-page-header {
+  padding: 0 0 16px 0;
+}
+
+.ant-card {
+  border-radius: 6px;
+}
+
+nz-table th, nz-table td {
+  white-space: nowrap;
+}
+
+.ant-table-wrapper {
+  overflow-x: auto;
+}
