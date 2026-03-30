@@ -26,7 +26,6 @@ import { EmployeeDTO } from '../../core/models/employee.model';
 import { RoleTypeConfigDTO } from '../../core/models/role-type.model';
 import { forkJoin } from 'rxjs';
 
-type ModalMode = 'create' | 'end' | 'allocation' | 'role';
 
 @Component({
   selector: 'app-assignments-page',
@@ -190,7 +189,7 @@ type ModalMode = 'create' | 'end' | 'allocation' | 'role';
           </nz-form-item>
           <nz-form-item>
             <nz-form-label nzRequired>Role Weight</nz-form-label>
-            <nz-form-control nzErrorTip="Required">
+            <nz-form-control nzErrorTip="Required" nzExtra="Auto-filled from role type — you can override it">
               <nz-input-number formControlName="roleWeight" [nzMin]="0" [nzMax]="1" [nzStep]="0.1" style="width:100%"></nz-input-number>
             </nz-form-control>
           </nz-form-item>
@@ -266,7 +265,7 @@ type ModalMode = 'create' | 'end' | 'allocation' | 'role';
           </nz-form-item>
           <nz-form-item>
             <nz-form-label nzRequired>Role Weight</nz-form-label>
-            <nz-form-control nzErrorTip="Required">
+            <nz-form-control nzErrorTip="Required" nzExtra="Auto-filled from role type — you can override it">
               <nz-input-number formControlName="roleWeight" [nzMin]="0" [nzMax]="1" [nzStep]="0.1" style="width:100%"></nz-input-number>
             </nz-form-control>
           </nz-form-item>
@@ -326,6 +325,20 @@ export class AssignmentsPageComponent implements OnInit {
       roleType: [null, Validators.required],
       roleWeight: [1, Validators.required],
       effectiveFrom: [null, Validators.required],
+    });
+
+    this.createForm.get('roleType')!.valueChanges.subscribe(roleType => {
+      if (roleType) {
+        const weight = this.roleTypes.find(r => r.roleType === roleType)?.defaultWeight ?? 1;
+        this.createForm.get('roleWeight')!.setValue(weight, { emitEvent: false });
+      }
+    });
+
+    this.roleForm.get('roleType')!.valueChanges.subscribe(roleType => {
+      if (roleType) {
+        const weight = this.roleTypes.find(r => r.roleType === roleType)?.defaultWeight ?? 1;
+        this.roleForm.get('roleWeight')!.setValue(weight, { emitEvent: false });
+      }
     });
 
     forkJoin({
@@ -400,7 +413,7 @@ export class AssignmentsPageComponent implements OnInit {
 
   openRoleModal(a: TeamAssignmentDTO): void {
     this.selectedAssignment = a;
-    this.roleForm.patchValue({ roleType: a.roleType, roleWeight: a.roleWeight, effectiveFrom: null });
+    this.roleForm.patchValue({ roleType: a.roleType, roleWeight: a.roleWeight, effectiveFrom: null }, { emitEvent: false });
     this.roleModalVisible = true;
   }
 
