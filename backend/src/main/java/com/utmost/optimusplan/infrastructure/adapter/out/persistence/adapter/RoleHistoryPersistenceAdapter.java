@@ -54,6 +54,11 @@ public class RoleHistoryPersistenceAdapter implements RoleHistoryRepositoryPort 
         });
     }
 
+    @Override
+    public void deleteByAssignmentId(UUID assignmentId) {
+        repo.deleteByAssignmentId(assignmentId);
+    }
+
     private RoleHistory toDomain(RoleHistoryJpaEntity e) {
         return RoleHistory.builder()
                 .id(e.getId())

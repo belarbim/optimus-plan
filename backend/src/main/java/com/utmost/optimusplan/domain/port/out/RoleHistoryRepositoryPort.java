@@ -27,4 +27,6 @@ public interface RoleHistoryRepositoryPort {
      * Sets effectiveTo on the currently open role segment for the given assignment.
      */
     void closeCurrentRole(UUID assignmentId, LocalDate effectiveTo);
+
+    void deleteByAssignmentId(UUID assignmentId);
 }

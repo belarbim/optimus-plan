@@ -47,3 +47,4 @@ export interface SimulationResultDTO {
   deltas: Record<string, number>;
   warnings: string[];
 }
+

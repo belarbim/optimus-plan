@@ -17,4 +17,6 @@ public interface RoleHistoryJpaRepository extends JpaRepository<RoleHistoryJpaEn
 
     @Query("SELECT rh FROM RoleHistoryJpaEntity rh WHERE rh.assignment.id = :assignmentId AND rh.effectiveTo IS NULL")
     Optional<RoleHistoryJpaEntity> findCurrentByAssignmentId(@Param("assignmentId") UUID assignmentId);
+
+    void deleteByAssignmentId(UUID assignmentId);
 }

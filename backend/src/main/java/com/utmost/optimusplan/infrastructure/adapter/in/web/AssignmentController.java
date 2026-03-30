@@ -143,4 +143,10 @@ public class AssignmentController {
                 .map(RoleHistoryResponse::from)
                 .toList();
     }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAssignment(@PathVariable UUID id) {
+        assignmentUseCase.deleteAssignment(id);
+    }
 }

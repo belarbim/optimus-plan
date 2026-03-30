@@ -44,4 +44,8 @@ export class AssignmentService {
   getRoleHistory(id: string): Observable<RoleHistoryDTO[]> {
     return this.http.get<RoleHistoryDTO[]>(`${this.base}/${id}/role-history`);
   }
+
+  deleteAssignment(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
 }

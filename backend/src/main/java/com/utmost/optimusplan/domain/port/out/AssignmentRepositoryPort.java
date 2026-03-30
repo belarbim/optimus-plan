@@ -34,4 +34,6 @@ public interface AssignmentRepositoryPort {
     boolean hasActiveAssignmentsByTeamId(UUID teamId);
 
     boolean hasActiveAssignmentsByEmployeeId(UUID employeeId);
+
+    void deleteById(UUID id);
 }

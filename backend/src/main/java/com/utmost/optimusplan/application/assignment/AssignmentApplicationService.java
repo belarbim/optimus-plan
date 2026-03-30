@@ -232,6 +232,14 @@ public class AssignmentApplicationService implements AssignmentUseCase {
         return roleHistoryRepo.findByAssignmentIdOrdered(assignmentId);
     }
 
+    @Override
+    public void deleteAssignment(UUID assignmentId) {
+        getAssignment(assignmentId); // throws NotFound if missing
+        roleHistoryRepo.deleteByAssignmentId(assignmentId);
+        assignmentRepo.deleteById(assignmentId);
+        audit("TeamAssignment", assignmentId, "DELETE", Map.of());
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------

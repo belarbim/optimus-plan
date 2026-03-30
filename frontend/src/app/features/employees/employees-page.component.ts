@@ -66,9 +66,9 @@ import { TeamAssignmentDTO } from '../../core/models/assignment.model';
       >
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Total Allocation</th>
+            <th [nzSortFn]="sortByName">Name</th>
+            <th [nzSortFn]="sortByEmail">Email</th>
+            <th [nzSortFn]="sortByAllocation">Total Allocation</th>
             <th>Assignments</th>
             <th>Actions</th>
           </tr>
@@ -199,6 +199,7 @@ import { TeamAssignmentDTO } from '../../core/models/assignment.model';
                   <th>Role</th>
                   <th>Start</th>
                   <th>End</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -214,6 +215,16 @@ import { TeamAssignmentDTO } from '../../core/models/assignment.model';
                       } @else {
                         <nz-tag nzColor="success">Active</nz-tag>
                       }
+                    </td>
+                    <td>
+                      <button
+                        nz-button nzType="link" nzDanger nzSize="small"
+                        nz-popconfirm
+                        nzPopconfirmTitle="Delete this assignment?"
+                        (nzOnConfirm)="deleteAssignment(a.id)"
+                      >
+                        <span nz-icon nzType="delete"></span>
+                      </button>
                     </td>
                   </tr>
                 }
@@ -249,6 +260,10 @@ export class EmployeesPageComponent implements OnInit {
 
   form!: FormGroup;
 
+  sortByName = (a: EmployeeDTO, b: EmployeeDTO) =>
+    `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+  sortByEmail = (a: EmployeeDTO, b: EmployeeDTO) => a.email.localeCompare(b.email);
+  sortByAllocation = (a: EmployeeDTO, b: EmployeeDTO) => a.totalAllocation - b.totalAllocation;
   ngOnInit(): void {
     this.form = this.fb.group({
       firstName: ['', Validators.required],
@@ -345,6 +360,17 @@ export class EmployeesPageComponent implements OnInit {
         this.message.error('Failed to load assignments');
         this.loadingAssignments = false;
       },
+    });
+  }
+
+  deleteAssignment(id: string): void {
+    this.assignmentService.deleteAssignment(id).subscribe({
+      next: () => {
+        this.message.success('Assignment deleted');
+        this.employeeAssignments = this.employeeAssignments.filter(a => a.id !== id);
+        this.loadEmployees();
+      },
+      error: () => this.message.error('Failed to delete assignment'),
     });
   }
 

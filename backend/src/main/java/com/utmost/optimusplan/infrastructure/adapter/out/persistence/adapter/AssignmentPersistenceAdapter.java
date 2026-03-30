@@ -71,6 +71,11 @@ public class AssignmentPersistenceAdapter implements AssignmentRepositoryPort {
         return repo.hasActiveAssignmentsByEmployeeId(employeeId);
     }
 
+    @Override
+    public void deleteById(UUID id) {
+        repo.deleteById(id);
+    }
+
     private TeamAssignment toDomain(TeamAssignmentJpaEntity e) {
         String employeeName = e.getEmployee().getFirstName() + " " + e.getEmployee().getLastName();
         // Resolve current role from role_history (effectiveTo IS NULL)

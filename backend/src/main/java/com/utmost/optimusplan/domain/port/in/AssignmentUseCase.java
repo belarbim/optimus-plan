@@ -41,4 +41,6 @@ public interface AssignmentUseCase {
     List<TeamAssignment> findByEmployee(UUID employeeId);
 
     List<RoleHistory> getRoleHistory(UUID assignmentId);
+
+    void deleteAssignment(UUID assignmentId);
 }
