@@ -32,6 +32,13 @@ public class WorkingDaysPersistenceAdapter implements WorkingDaysRepositoryPort 
         return repo.findByMonth(month).map(this::toDomain);
     }
 
+    @Override
+    public List<WorkingDaysConfig> findByYear(int year) {
+        return repo.findByMonthStartingWith(year + "-").stream()
+                .map(this::toDomain)
+                .collect(Collectors.toList());
+    }
+
     private WorkingDaysConfig toDomain(WorkingDaysConfigJpaEntity e) {
         return WorkingDaysConfig.builder()
                 .id(e.getId())
@@ -42,9 +49,13 @@ public class WorkingDaysPersistenceAdapter implements WorkingDaysRepositoryPort 
     }
 
     private WorkingDaysConfigJpaEntity toEntity(WorkingDaysConfig config) {
-        WorkingDaysConfigJpaEntity entity = config.getId() != null
-                ? repo.findById(config.getId()).orElseGet(WorkingDaysConfigJpaEntity::new)
-                : new WorkingDaysConfigJpaEntity();
+        WorkingDaysConfigJpaEntity entity = null;
+        if (config.getId() != null) {
+            entity = repo.findById(config.getId()).orElse(null);
+        }
+        if (entity == null) {
+            entity = repo.findByMonth(config.getMonth()).orElseGet(WorkingDaysConfigJpaEntity::new);
+        }
         entity.setId(config.getId());
         entity.setMonth(config.getMonth());
         entity.setAvgDaysWorked(config.getAvgDaysWorked());

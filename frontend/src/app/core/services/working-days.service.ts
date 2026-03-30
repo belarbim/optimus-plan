@@ -13,6 +13,14 @@ export class WorkingDaysService {
     return this.http.get<WorkingDaysConfigDTO[]>(this.base);
   }
 
+  getByYear(year: number): Observable<WorkingDaysConfigDTO[]> {
+    return this.http.get<WorkingDaysConfigDTO[]>(this.base, { params: { year: year.toString() } });
+  }
+
+  upsertMonth(month: string, avgDaysWorked: number): Observable<WorkingDaysConfigDTO> {
+    return this.http.put<WorkingDaysConfigDTO>(`${this.base}/${month}`, { avgDaysWorked });
+  }
+
   importCsv(file: File): Observable<WorkingDaysConfigDTO[]> {
     const formData = new FormData();
     formData.append('file', file);

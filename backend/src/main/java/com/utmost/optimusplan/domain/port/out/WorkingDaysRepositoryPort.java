@@ -12,4 +12,6 @@ public interface WorkingDaysRepositoryPort {
     List<WorkingDaysConfig> findAll();
 
     Optional<WorkingDaysConfig> findByMonth(String month);
+
+    List<WorkingDaysConfig> findByYear(int year);
 }

@@ -108,6 +108,34 @@ public class WorkingDaysApplicationService implements WorkingDaysUseCase {
         return workingDaysRepo.findAll();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkingDaysConfig> findByYear(int year) {
+        return workingDaysRepo.findByYear(year);
+    }
+
+    @Override
+    public WorkingDaysConfig upsertMonth(String month, BigDecimal avgDaysWorked) {
+        if (!month.matches("\\d{4}-\\d{2}")) {
+            throw new DomainException(new DomainError.Validation(
+                    "Invalid month format '" + month + "'. Expected yyyy-MM"));
+        }
+        LocalDateTime now = LocalDateTime.now();
+        WorkingDaysConfig config = workingDaysRepo.findByMonth(month)
+                .map(existing -> {
+                    existing.setAvgDaysWorked(avgDaysWorked);
+                    existing.setImportedAt(now);
+                    return existing;
+                })
+                .orElse(WorkingDaysConfig.builder()
+                        .id(UUID.randomUUID())
+                        .month(month)
+                        .avgDaysWorked(avgDaysWorked)
+                        .importedAt(now)
+                        .build());
+        return workingDaysRepo.save(config);
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
