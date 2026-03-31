@@ -82,38 +82,66 @@ public class CapacityApplicationService implements CapacityUseCase {
     public RemainingCapacityResult computeRemaining(RemainingCapacityQuery query) {
         Team team = requireTeam(query.teamId());
 
-        LocalDate date      = query.date();
-        YearMonth ym        = YearMonth.from(date);
-        String    month     = ym.toString();
-        LocalDate monthEnd  = ym.atEndOfMonth();
+        LocalDate date     = query.date();
+        int       year     = date.getYear();
+        YearMonth firstYm  = YearMonth.from(date);
+        YearMonth yearEnd  = YearMonth.of(year, 12);
 
-        // Full-month capacity for the ratio
-        CapacityResult fullResult = doCompute(team, month);
-
-        List<PublicHoliday> holidays = loadHolidays(month);
-        int[] remainingTotal = BusinessDayCalculator.remainingAndTotal(date, monthEnd, holidays);
-        int remaining = remainingTotal[0];
-        int total     = remainingTotal[1];
-
-        // Determine the adjusted reference date (first weekday on or after the requested date)
+        // Adjust reference date to the next weekday when it falls on a weekend
+        LocalDate monthEnd = firstYm.atEndOfMonth();
         LocalDate adjusted = date;
         while (!adjusted.isAfter(monthEnd) && !BusinessDayCalculator.isWeekday(adjusted)) {
             adjusted = adjusted.plusDays(1);
         }
 
-        BigDecimal ratio = total == 0 ? BigDecimal.ZERO
-                : BigDecimal.valueOf(remaining).divide(BigDecimal.valueOf(total), 10, RoundingMode.HALF_UP);
+        // --- Current month (partial): apply remaining/total ratio ---
+        List<PublicHoliday> firstHolidays = loadHolidays(firstYm.toString());
+        int[] rt              = BusinessDayCalculator.remainingAndTotal(date, monthEnd, firstHolidays);
+        int   remainingFirst  = rt[0];
+        int   totalFirst      = rt[1];
 
-        BigDecimal totalRemaining = fullResult.totalCapacity().multiply(ratio)
-                .setScale(3, RoundingMode.HALF_UP);
+        BigDecimal ratio = totalFirst == 0 ? BigDecimal.ZERO
+                : BigDecimal.valueOf(remainingFirst)
+                        .divide(BigDecimal.valueOf(totalFirst), 10, RoundingMode.HALF_UP);
 
-        List<CategoryBreakdown> remainingBreakdown = fullResult.categoryBreakdown().stream()
-                .map(cb -> new CategoryBreakdown(
-                        cb.categoryName(),
-                        cb.manDays().multiply(ratio).setScale(3, RoundingMode.HALF_UP)))
+        CapacityResult firstResult = doCompute(team, firstYm.toString());
+        BigDecimal totalRemaining  = firstResult.totalCapacity().multiply(ratio).setScale(3, RoundingMode.HALF_UP);
+
+        Map<String, BigDecimal> catMap = new LinkedHashMap<>();
+        firstResult.categoryBreakdown().forEach(cb ->
+                catMap.put(cb.categoryName(), cb.manDays().multiply(ratio).setScale(3, RoundingMode.HALF_UP)));
+
+        int remainingBusinessDays = remainingFirst;
+
+        // --- Subsequent full months until December ---
+        YearMonth ym = firstYm.plusMonths(1);
+        while (!ym.isAfter(yearEnd)) {
+            String              monthStr  = ym.toString();
+            List<PublicHoliday> holidays  = loadHolidays(monthStr);
+            CapacityResult      monthResult = doCompute(team, monthStr);
+            int                 bizDays   = BusinessDayCalculator.countBusinessDays(
+                                                ym.atDay(1), ym.atEndOfMonth(), holidays);
+
+            remainingBusinessDays += bizDays;
+            totalRemaining = totalRemaining.add(monthResult.totalCapacity()).setScale(3, RoundingMode.HALF_UP);
+            monthResult.categoryBreakdown().forEach(cb ->
+                    catMap.merge(cb.categoryName(), cb.manDays(), BigDecimal::add));
+            ym = ym.plusMonths(1);
+        }
+
+        // --- Total business days for the full year (for context) ---
+        int totalYearDays = 0;
+        for (int m = 1; m <= 12; m++) {
+            YearMonth yym = YearMonth.of(year, m);
+            totalYearDays += BusinessDayCalculator.countBusinessDays(
+                    yym.atDay(1), yym.atEndOfMonth(), loadHolidays(yym.toString()));
+        }
+
+        List<CategoryBreakdown> remainingBreakdown = catMap.entrySet().stream()
+                .map(e -> new CategoryBreakdown(e.getKey(), e.getValue().setScale(3, RoundingMode.HALF_UP)))
                 .collect(Collectors.toList());
 
-        return new RemainingCapacityResult(date, adjusted, remaining, total,
+        return new RemainingCapacityResult(date, adjusted, remainingBusinessDays, totalYearDays,
                 totalRemaining, remainingBreakdown);
     }
 

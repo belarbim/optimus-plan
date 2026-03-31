@@ -6,6 +6,7 @@ export interface CategoryBreakdownItem {
 export interface EmployeeContribution {
   employeeId: string;
   employeeName: string;
+  teamName?: string;
   allocationPct: number;
   roleType: string;
   roleWeight: number;

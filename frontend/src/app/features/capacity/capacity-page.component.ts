@@ -23,6 +23,7 @@ import { TeamService } from '../../core/services/team.service';
 import { TeamDTO } from '../../core/models/team.model';
 import {
   CapacityResultDTO,
+  CategoryBreakdownItem,
   EmployeeContribution,
   RemainingCapacityDTO,
   RollupCapacityDTO,
@@ -217,7 +218,7 @@ type ViewMode = 'month' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'year';
         <!-- ── Rollup Tab ── -->
         <nz-tab nzTitle="Rollup">
           <nz-spin [nzSpinning]="loadingRollup">
-            <div style="margin-bottom:12px; display:flex; gap:12px; align-items:center;">
+            <div style="margin-bottom:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
               <label style="font-weight:500;">Month:</label>
               <app-month-picker (monthChange)="onRollupMonthChange($event)"></app-month-picker>
               <button nz-button nzType="default" (click)="loadRollup()" [disabled]="!rollupMonth">
@@ -225,7 +226,7 @@ type ViewMode = 'month' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'year';
               </button>
             </div>
             @if (rollupResult) {
-              <div nz-row [nzGutter]="[16,16]" style="margin-bottom:16px;">
+              <div nz-row [nzGutter]="[16,16]" style="margin-bottom:24px;">
                 <div nz-col [nzXs]="24" [nzSm]="8">
                   <app-stat-card title="Own Capacity" [value]="formatNum(rollupResult.ownCapacity.totalCapacity)" icon="bar-chart" color="#1890ff"></app-stat-card>
                 </div>
@@ -236,28 +237,74 @@ type ViewMode = 'month' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'year';
                   <app-stat-card title="Consolidated Total" [value]="formatNum(rollupResult.consolidatedTotal)" icon="bar-chart" color="#722ed1"></app-stat-card>
                 </div>
               </div>
-              <nz-card nzTitle="Sub-Team Capacities">
-                <nz-table [nzData]="rollupResult.subTeamCapacities" [nzBordered]="true" [nzSize]="'small'">
-                  <thead><tr><th>Team</th><th>Month</th><th>Total Capacity</th></tr></thead>
-                  <tbody>
-                    @for (sc of rollupResult.subTeamCapacities; track sc.teamId) {
-                      <tr><td>{{ sc.teamName }}</td><td>{{ sc.month }}</td><td>{{ sc.totalCapacity | number:'1.1-2' }}</td></tr>
-                    }
-                  </tbody>
-                </nz-table>
-              </nz-card>
+
+              <div nz-row [nzGutter]="[16,16]">
+                <div nz-col [nzXs]="24" [nzMd]="12">
+                  <nz-card nzTitle="Category Breakdown">
+                    <nz-table
+                      [nzData]="rollupCategories"
+                      [nzBordered]="true"
+                      [nzSize]="'small'"
+                      [nzShowPagination]="false"
+                    >
+                      <thead><tr><th>Category</th><th>Man Days</th></tr></thead>
+                      <tbody>
+                        @for (c of rollupCategories; track c.categoryName) {
+                          <tr>
+                            <td>{{ c.categoryName }}</td>
+                            <td>{{ c.manDays | number:'1.1-2' }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </nz-table>
+                  </nz-card>
+                </div>
+                <div nz-col [nzXs]="24" [nzMd]="12">
+                  <nz-card nzTitle="Employee Contributions">
+                    <nz-table
+                      [nzData]="rollupEmployees"
+                      [nzBordered]="true"
+                      [nzSize]="'small'"
+                      [nzPageSize]="10"
+                    >
+                      <thead>
+                        <tr>
+                          <th>Employee</th>
+                          <th>Team</th>
+                          <th>Allocation</th>
+                          <th>Role</th>
+                          <th>Man Days</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (e of rollupEmployees; track e.employeeId) {
+                          <tr>
+                            <td>{{ e.employeeName }}</td>
+                            <td>{{ e.teamName }}</td>
+                            <td>{{ e.allocationPct }}%</td>
+                            <td>{{ e.roleType }}</td>
+                            <td>{{ e.totalManDays | number:'1.1-2' }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </nz-table>
+                  </nz-card>
+                </div>
+              </div>
             }
           </nz-spin>
         </nz-tab>
 
         <!-- ── Remaining Tab ── -->
         <nz-tab nzTitle="Remaining">
-          <div style="margin-bottom:16px; display:flex; gap:12px; align-items:center;">
+          <div style="margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <label style="font-weight:500;">From date:</label>
             <nz-date-picker
               [(ngModel)]="remainingDate"
               nzFormat="yyyy-MM-dd"
               nzPlaceHolder="Select date"
             ></nz-date-picker>
+            <span style="color:#888; font-size:13px;">Computes remaining capacity from this date to Dec 31.</span>
             <button nz-button nzType="default" (click)="loadRemaining()" [disabled]="!remainingDate">
               <span nz-icon nzType="reload"></span> Load Remaining
             </button>
@@ -266,13 +313,13 @@ type ViewMode = 'month' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'year';
             @if (remainingResult) {
               <div nz-row [nzGutter]="[16,16]" style="margin-bottom:16px;">
                 <div nz-col [nzXs]="24" [nzSm]="8">
-                  <app-stat-card title="Remaining Business Days" [value]="remainingResult.remainingBusinessDays" icon="calendar" color="#1890ff"></app-stat-card>
+                  <app-stat-card title="Remaining Business Days (to Year-End)" [value]="remainingResult.remainingBusinessDays" icon="calendar" color="#1890ff"></app-stat-card>
                 </div>
                 <div nz-col [nzXs]="24" [nzSm]="8">
-                  <app-stat-card title="Total Business Days" [value]="remainingResult.totalBusinessDays" icon="calendar" color="#52c41a"></app-stat-card>
+                  <app-stat-card title="Total Business Days (Full Year)" [value]="remainingResult.totalBusinessDays" icon="calendar" color="#52c41a"></app-stat-card>
                 </div>
                 <div nz-col [nzXs]="24" [nzSm]="8">
-                  <app-stat-card title="Total Remaining Man Days" [value]="formatNum(remainingResult.totalRemaining)" icon="bar-chart" color="#faad14"></app-stat-card>
+                  <app-stat-card title="Remaining Man Days (to Year-End)" [value]="formatNum(remainingResult.totalRemaining)" icon="bar-chart" color="#faad14"></app-stat-card>
                 </div>
               </div>
               <nz-card nzTitle="Category Breakdown">
@@ -366,6 +413,8 @@ export class CapacityPageComponent implements OnInit {
   rollupMonth = '';
   loadingRollup = false;
   rollupResult: RollupCapacityDTO | null = null;
+  rollupCategories: CategoryBreakdownItem[] = [];
+  rollupEmployees: (EmployeeContribution & { teamName: string })[] = [];
 
   // Remaining tab
   remainingDate: Date | null = null;
@@ -485,14 +534,41 @@ export class CapacityPageComponent implements OnInit {
     if (!this.selectedTeamId || !this.rollupMonth) return;
     this.loadingRollup = true;
     this.capacityService.getRollupCapacity(this.selectedTeamId, this.rollupMonth).subscribe({
-      next: r => { this.rollupResult = r; this.loadingRollup = false; },
+      next: r => {
+        this.rollupResult = r;
+        this.rollupCategories = this.aggregateRollupCategories(r);
+        this.rollupEmployees = this.aggregateRollupEmployees(r);
+        this.loadingRollup = false;
+      },
       error: () => { this.loadingRollup = false; },
     });
   }
 
+  private aggregateRollupCategories(r: RollupCapacityDTO): CategoryBreakdownItem[] {
+    const all = [r.ownCapacity, ...r.subTeamCapacities];
+    const catMap = new Map<string, number>();
+    all.forEach(c => c.categoryBreakdown.forEach(b =>
+      catMap.set(b.categoryName, (catMap.get(b.categoryName) ?? 0) + b.manDays)
+    ));
+    return Array.from(catMap, ([categoryName, manDays]) => ({ categoryName, manDays }))
+      .sort((a, b) => b.manDays - a.manDays);
+  }
+
+  private aggregateRollupEmployees(r: RollupCapacityDTO): (EmployeeContribution & { teamName: string })[] {
+    const rows: (EmployeeContribution & { teamName: string })[] = [];
+    const addFrom = (cap: CapacityResultDTO) =>
+      cap.employeeContributions.forEach(e =>
+        rows.push({ ...e, teamName: cap.teamName })
+      );
+    addFrom(r.ownCapacity);
+    r.subTeamCapacities.forEach(sc => addFrom(sc));
+    return rows.sort((a, b) => b.totalManDays - a.totalManDays);
+  }
+
   loadRemaining(): void {
     if (!this.selectedTeamId || !this.remainingDate) return;
-    const dateStr = this.remainingDate.toISOString().split('T')[0];
+    const d = this.remainingDate;
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     this.loadingRemaining = true;
     this.capacityService.getRemainingCapacity(this.selectedTeamId, dateStr).subscribe({
       next: r => { this.remainingResult = r; this.loadingRemaining = false; },
