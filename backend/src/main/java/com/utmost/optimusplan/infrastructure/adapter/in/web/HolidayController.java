@@ -23,14 +23,12 @@ public class HolidayController {
     record HolidayRequest(
             @NotNull LocalDate date,
             @NotBlank String name,
-            @NotBlank String locale,
             boolean recurring) {}
 
     record HolidayResponse(
             UUID id,
             String date,
             String name,
-            String locale,
             boolean recurring,
             String createdAt) {
 
@@ -39,17 +37,14 @@ public class HolidayController {
                     h.getId(),
                     h.getDate() != null ? h.getDate().toString() : null,
                     h.getName(),
-                    h.getLocale(),
                     h.isRecurring(),
                     h.getCreatedAt() != null ? h.getCreatedAt().toString() : null);
         }
     }
 
     @GetMapping
-    public List<HolidayResponse> getAll(
-            @RequestParam(required = false) String month,
-            @RequestParam(defaultValue = "FR") String locale) {
-        return holidayUseCase.findAll(month, locale).stream()
+    public List<HolidayResponse> getAll(@RequestParam(required = false) Integer year) {
+        return holidayUseCase.findAll(year).stream()
                 .map(HolidayResponse::from)
                 .toList();
     }
@@ -64,14 +59,14 @@ public class HolidayController {
     public HolidayResponse create(@Valid @RequestBody HolidayRequest req) {
         return HolidayResponse.from(
                 holidayUseCase.create(new HolidayUseCase.CreateHolidayCommand(
-                        req.date(), req.name(), req.locale(), req.recurring())));
+                        req.date(), req.name(), req.recurring())));
     }
 
     @PutMapping("/{id}")
     public HolidayResponse update(@PathVariable UUID id, @Valid @RequestBody HolidayRequest req) {
         return HolidayResponse.from(
                 holidayUseCase.update(new HolidayUseCase.UpdateHolidayCommand(
-                        id, req.date(), req.name(), req.locale(), req.recurring())));
+                        id, req.date(), req.name(), req.recurring())));
     }
 
     @DeleteMapping("/{id}")

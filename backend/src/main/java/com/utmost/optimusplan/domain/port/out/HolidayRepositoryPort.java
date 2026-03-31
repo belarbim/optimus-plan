@@ -15,14 +15,13 @@ public interface HolidayRepositoryPort {
 
     List<PublicHoliday> findAll();
 
-    /**
-     * Returns holidays that fall within the given month (yyyy-MM) and match the locale.
-     */
-    List<PublicHoliday> findByMonthAndLocale(String month, String locale);
+    /** Returns holidays that fall within the given month (yyyy-MM). */
+    List<PublicHoliday> findByMonth(String month);
 
-    List<PublicHoliday> findRecurring();
+    /** Returns holidays that fall within the given calendar year. */
+    List<PublicHoliday> findByYear(int year);
 
     void deleteById(UUID id);
 
-    boolean existsByDateAndLocale(LocalDate date, String locale);
+    boolean existsByDate(LocalDate date);
 }

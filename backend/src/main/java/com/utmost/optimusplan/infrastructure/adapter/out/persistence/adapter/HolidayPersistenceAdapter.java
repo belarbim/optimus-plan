@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,15 +36,18 @@ public class HolidayPersistenceAdapter implements HolidayRepositoryPort {
     }
 
     @Override
-    public List<PublicHoliday> findByMonthAndLocale(String month, String locale) {
-        return repo.findByMonthAndLocale(month, locale).stream()
+    public List<PublicHoliday> findByMonth(String month) {
+        YearMonth ym = YearMonth.parse(month);
+        return repo.findByDateBetween(ym.atDay(1), ym.atEndOfMonth()).stream()
                 .map(this::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<PublicHoliday> findRecurring() {
-        return repo.findByRecurringTrue().stream().map(this::toDomain).collect(Collectors.toList());
+    public List<PublicHoliday> findByYear(int year) {
+        return repo.findByDateBetween(LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31)).stream()
+                .map(this::toDomain)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -52,8 +56,8 @@ public class HolidayPersistenceAdapter implements HolidayRepositoryPort {
     }
 
     @Override
-    public boolean existsByDateAndLocale(LocalDate date, String locale) {
-        return repo.existsByDateAndLocale(date, locale);
+    public boolean existsByDate(LocalDate date) {
+        return repo.existsByDate(date);
     }
 
     private PublicHoliday toDomain(PublicHolidayJpaEntity e) {
@@ -61,7 +65,6 @@ public class HolidayPersistenceAdapter implements HolidayRepositoryPort {
                 .id(e.getId())
                 .date(e.getDate())
                 .name(e.getName())
-                .locale(e.getLocale())
                 .recurring(e.isRecurring())
                 .createdAt(e.getCreatedAt())
                 .build();
@@ -74,7 +77,6 @@ public class HolidayPersistenceAdapter implements HolidayRepositoryPort {
         entity.setId(holiday.getId());
         entity.setDate(holiday.getDate());
         entity.setName(holiday.getName());
-        entity.setLocale(holiday.getLocale());
         entity.setRecurring(holiday.isRecurring());
         return entity;
     }

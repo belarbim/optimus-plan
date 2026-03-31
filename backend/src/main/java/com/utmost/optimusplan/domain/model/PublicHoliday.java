@@ -20,7 +20,6 @@ public class PublicHoliday {
     private UUID id;
     private LocalDate date;
     private String name;
-    private String locale;
 
     /** If true, the holiday repeats every year on the same month/day. */
     private boolean recurring;

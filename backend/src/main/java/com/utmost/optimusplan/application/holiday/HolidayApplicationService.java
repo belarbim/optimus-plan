@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -35,15 +34,11 @@ public class HolidayApplicationService implements HolidayUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PublicHoliday> findAll(String month, String locale) {
-        if (month == null || month.isBlank()) {
-            // Return all holidays, optionally filtered by locale
-            return holidayRepo.findAll().stream()
-                    .filter(h -> locale == null || locale.isBlank()
-                            || locale.equalsIgnoreCase(h.getLocale()))
-                    .collect(Collectors.toList());
+    public List<PublicHoliday> findAll(Integer year) {
+        if (year == null) {
+            return holidayRepo.findAll();
         }
-        return holidayRepo.findByMonthAndLocale(month, locale);
+        return holidayRepo.findByYear(year);
     }
 
     @Override
@@ -56,25 +51,22 @@ public class HolidayApplicationService implements HolidayUseCase {
 
     @Override
     public PublicHoliday create(CreateHolidayCommand cmd) {
-        if (holidayRepo.existsByDateAndLocale(cmd.date(), cmd.locale())) {
+        if (holidayRepo.existsByDate(cmd.date())) {
             throw new DomainException(new DomainError.Conflict(
-                    "A holiday on " + cmd.date() + " for locale '" + cmd.locale() + "' already exists"));
+                    "A holiday on " + cmd.date() + " already exists"));
         }
 
         PublicHoliday holiday = PublicHoliday.builder()
                 .id(UUID.randomUUID())
                 .date(cmd.date())
                 .name(cmd.name())
-                .locale(cmd.locale())
                 .recurring(cmd.recurring())
                 .createdAt(LocalDateTime.now())
                 .build();
 
         PublicHoliday saved = holidayRepo.save(holiday);
         audit("PublicHoliday", saved.getId(), "CREATE",
-                Map.of("date", saved.getDate().toString(),
-                       "name", saved.getName(),
-                       "locale", saved.getLocale()));
+                Map.of("date", saved.getDate().toString(), "name", saved.getName()));
         return saved;
     }
 
@@ -84,7 +76,6 @@ public class HolidayApplicationService implements HolidayUseCase {
 
         holiday.setDate(cmd.date());
         holiday.setName(cmd.name());
-        holiday.setLocale(cmd.locale());
         holiday.setRecurring(cmd.recurring());
 
         PublicHoliday saved = holidayRepo.save(holiday);
@@ -95,7 +86,7 @@ public class HolidayApplicationService implements HolidayUseCase {
 
     @Override
     public void delete(UUID id) {
-        PublicHoliday holiday = findById(id); // throws NotFound if absent
+        PublicHoliday holiday = findById(id);
         holidayRepo.deleteById(id);
         audit("PublicHoliday", id, "DELETE",
                 Map.of("date", holiday.getDate().toString(), "name", holiday.getName()));

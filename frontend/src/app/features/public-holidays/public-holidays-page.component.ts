@@ -9,7 +9,6 @@ import { NzFormModule } from 'ng-zorro-antd/form';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzDatePickerModule } from 'ng-zorro-antd/date-picker';
-import { NzSwitchModule } from 'ng-zorro-antd/switch';
 import { NzPopconfirmModule } from 'ng-zorro-antd/popconfirm';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzIconModule } from 'ng-zorro-antd/icon';
@@ -17,7 +16,6 @@ import { NzSpinModule } from 'ng-zorro-antd/spin';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzCheckboxModule } from 'ng-zorro-antd/checkbox';
 import { PageHeaderComponent } from '../../shared/atoms/page-header/page-header.component';
-import { MonthPickerComponent } from '../../shared/molecules/month-picker/month-picker.component';
 import { PublicHolidayService } from '../../core/services/public-holiday.service';
 import { PublicHolidayDTO } from '../../core/models/public-holiday.model';
 
@@ -35,28 +33,26 @@ import { PublicHolidayDTO } from '../../core/models/public-holiday.model';
     NzInputModule,
     NzSelectModule,
     NzDatePickerModule,
-    NzSwitchModule,
     NzPopconfirmModule,
     NzIconModule,
     NzSpinModule,
     NzTagModule,
     NzCheckboxModule,
     PageHeaderComponent,
-    MonthPickerComponent,
   ],
   template: `
-    <app-page-header title="Public Holidays" subtitle="Manage public holidays by locale"></app-page-header>
+    <app-page-header title="Public Holidays" subtitle="Manage public holidays used in capacity computation"></app-page-header>
 
     <div style="margin-bottom:16px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
       <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-        <app-month-picker placeholder="Filter by month" (monthChange)="filterMonth = $event; loadHolidays()"></app-month-picker>
-        <nz-select [(ngModel)]="filterLocale" nzAllowClear nzPlaceHolder="Filter by locale" style="width:160px" (ngModelChange)="loadHolidays()">
-          @for (l of locales; track l) {
-            <nz-option [nzValue]="l" [nzLabel]="l"></nz-option>
+        <label style="font-weight:500;">Year:</label>
+        <nz-select [(ngModel)]="filterYear" nzAllowClear nzPlaceHolder="All years" style="width:120px" (ngModelChange)="loadHolidays()">
+          @for (y of availableYears; track y) {
+            <nz-option [nzValue]="y" [nzLabel]="y.toString()"></nz-option>
           }
         </nz-select>
-        <button nz-button nzType="default" (click)="filterMonth=''; filterLocale=null; loadHolidays()">
-          <span nz-icon nzType="reload"></span> Reset
+        <button nz-button nzType="default" (click)="filterYear = null; loadHolidays()">
+          <span nz-icon nzType="reload"></span> Show All
         </button>
       </div>
       <button nz-button nzType="primary" (click)="openModal()">
@@ -74,11 +70,10 @@ import { PublicHolidayDTO } from '../../core/models/public-holiday.model';
       >
         <thead>
           <tr>
-            <th>Date</th>
+            <th nzWidth="140px">Date</th>
             <th>Name</th>
-            <th>Locale</th>
-            <th>Recurring</th>
-            <th>Actions</th>
+            <th nzWidth="140px">Recurring</th>
+            <th nzWidth="100px">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -86,7 +81,6 @@ import { PublicHolidayDTO } from '../../core/models/public-holiday.model';
             <tr>
               <td>{{ h.date }}</td>
               <td>{{ h.name }}</td>
-              <td><nz-tag>{{ h.locale }}</nz-tag></td>
               <td>
                 <nz-tag [nzColor]="h.recurring ? 'green' : 'default'">
                   {{ h.recurring ? 'Recurring' : 'One-time' }}
@@ -133,19 +127,9 @@ import { PublicHolidayDTO } from '../../core/models/public-holiday.model';
             </nz-form-control>
           </nz-form-item>
           <nz-form-item>
-            <nz-form-label nzRequired>Locale</nz-form-label>
-            <nz-form-control nzErrorTip="Required">
-              <nz-select formControlName="locale" nzPlaceHolder="Select locale" style="width:100%">
-                @for (l of locales; track l) {
-                  <nz-option [nzValue]="l" [nzLabel]="l"></nz-option>
-                }
-              </nz-select>
-            </nz-form-control>
-          </nz-form-item>
-          <nz-form-item>
-            <nz-form-label>Recurring</nz-form-label>
+            <nz-form-label>Recurring annually</nz-form-label>
             <nz-form-control>
-              <label nz-checkbox formControlName="recurring">Recurring annually</label>
+              <label nz-checkbox formControlName="recurring">Repeats every year on the same date</label>
             </nz-form-control>
           </nz-form-item>
         </form>
@@ -163,16 +147,14 @@ export class PublicHolidaysPageComponent implements OnInit {
   modalVisible = false;
   holidays: PublicHolidayDTO[] = [];
   editingHoliday: PublicHolidayDTO | null = null;
-  filterMonth = '';
-  filterLocale: string | null = null;
-  locales = ['FR', 'US', 'GB', 'DE', 'ES', 'IT', 'PT', 'BE', 'NL', 'CH'];
+  filterYear: number | null = new Date().getFullYear();
+  availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 1 + i);
   form!: FormGroup;
 
   ngOnInit(): void {
     this.form = this.fb.group({
       date: [null, Validators.required],
       name: ['', Validators.required],
-      locale: ['FR', Validators.required],
       recurring: [false],
     });
     this.loadHolidays();
@@ -180,7 +162,7 @@ export class PublicHolidaysPageComponent implements OnInit {
 
   loadHolidays(): void {
     this.loading = true;
-    this.holidayService.getHolidays(this.filterMonth || undefined, this.filterLocale || undefined).subscribe({
+    this.holidayService.getHolidays(this.filterYear ?? undefined).subscribe({
       next: h => { this.holidays = h; this.loading = false; },
       error: () => { this.message.error('Failed to load'); this.loading = false; },
     });
@@ -190,13 +172,12 @@ export class PublicHolidaysPageComponent implements OnInit {
     this.editingHoliday = h ?? null;
     if (h) {
       this.form.patchValue({
-        date: h.date ? new Date(h.date) : null,
+        date: h.date ? new Date(h.date + 'T00:00:00') : null,
         name: h.name,
-        locale: h.locale,
         recurring: h.recurring,
       });
     } else {
-      this.form.reset({ locale: 'FR', recurring: false });
+      this.form.reset({ recurring: false });
     }
     this.modalVisible = true;
   }
@@ -207,17 +188,28 @@ export class PublicHolidaysPageComponent implements OnInit {
   }
 
   submitForm(): void {
-    if (this.form.invalid) { Object.values(this.form.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
+    if (this.form.invalid) {
+      Object.values(this.form.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity(); });
+      return;
+    }
     const v = this.form.value;
-    const dateStr = v.date instanceof Date ? v.date.toISOString().split('T')[0] : v.date;
-    const body = { ...v, date: dateStr };
+    const d: Date = v.date;
+    const dateStr = d instanceof Date
+      ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      : v.date;
+    const body = { name: v.name, date: dateStr, recurring: v.recurring };
     this.saving = true;
     const req = this.editingHoliday
       ? this.holidayService.updateHoliday(this.editingHoliday.id!, body)
       : this.holidayService.createHoliday(body);
 
     req.subscribe({
-      next: () => { this.message.success(this.editingHoliday ? 'Updated' : 'Created'); this.saving = false; this.closeModal(); this.loadHolidays(); },
+      next: () => {
+        this.message.success(this.editingHoliday ? 'Updated' : 'Created');
+        this.saving = false;
+        this.closeModal();
+        this.loadHolidays();
+      },
       error: () => { this.message.error('Failed'); this.saving = false; },
     });
   }

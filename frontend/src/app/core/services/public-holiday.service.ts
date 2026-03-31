@@ -9,10 +9,9 @@ export class PublicHolidayService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/holidays`;
 
-  getHolidays(month?: string, locale?: string): Observable<PublicHolidayDTO[]> {
+  getHolidays(year?: number): Observable<PublicHolidayDTO[]> {
     const params: Record<string, string> = {};
-    if (month) params['month'] = month;
-    if (locale) params['locale'] = locale;
+    if (year != null) params['year'] = year.toString();
     return this.http.get<PublicHolidayDTO[]>(this.base, { params });
   }
 

@@ -11,17 +11,15 @@ public interface HolidayUseCase {
     record CreateHolidayCommand(
             LocalDate date,
             String name,
-            String locale,
             boolean recurring) {}
 
     record UpdateHolidayCommand(
             UUID id,
             LocalDate date,
             String name,
-            String locale,
             boolean recurring) {}
 
-    List<PublicHoliday> findAll(String month, String locale);
+    List<PublicHoliday> findAll(Integer year);
 
     PublicHoliday findById(UUID id);
 

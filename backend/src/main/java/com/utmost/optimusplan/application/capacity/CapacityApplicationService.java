@@ -38,7 +38,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CapacityApplicationService implements CapacityUseCase {
 
-    private static final String DEFAULT_LOCALE = "FR";
 
     private final TeamRepositoryPort        teamRepo;
     private final AssignmentRepositoryPort  assignmentRepo;
@@ -302,6 +301,6 @@ public class CapacityApplicationService implements CapacityUseCase {
     }
 
     private List<PublicHoliday> loadHolidays(String month) {
-        return holidayRepo.findByMonthAndLocale(month, DEFAULT_LOCALE);
+        return holidayRepo.findByMonth(month);
     }
 }

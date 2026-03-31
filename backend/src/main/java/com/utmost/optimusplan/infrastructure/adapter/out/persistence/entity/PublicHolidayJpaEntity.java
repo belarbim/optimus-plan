@@ -25,9 +25,6 @@ public class PublicHolidayJpaEntity {
 
     private String name;
 
-    @Column(columnDefinition = "VARCHAR(10) DEFAULT 'FR'")
-    private String locale;
-
     @Column(columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean recurring;
 
