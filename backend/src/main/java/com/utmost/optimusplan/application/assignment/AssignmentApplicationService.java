@@ -229,6 +229,45 @@ public class AssignmentApplicationService implements AssignmentUseCase {
     }
 
     @Override
+    public TeamAssignment updateAssignment(UpdateAssignmentCommand cmd) {
+        TeamAssignment assignment = getAssignment(cmd.assignmentId());
+
+        var team = teamRepo.findById(cmd.teamId())
+                .orElseThrow(() -> new DomainException(new DomainError.NotFound("Team", cmd.teamId())));
+
+        // Re-compute total allocation excluding this assignment
+        LocalDate from = cmd.startDate() != null ? cmd.startDate() : assignment.getStartDate();
+        LocalDate to   = LocalDate.of(9999, 12, 31);
+        BigDecimal others = assignmentRepo.sumActiveAllocationForEmployee(
+                assignment.getEmployeeId(), from, to, assignment.getId());
+        if (others == null) others = BigDecimal.ZERO;
+
+        if (others.add(cmd.allocationPct()).compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new DomainException(new DomainError.BusinessRule(
+                    "Total allocation for employee would exceed 100 %"));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        assignment.setTeamId(cmd.teamId());
+        assignment.setTeamName(team.getName());
+        assignment.setAllocationPct(cmd.allocationPct());
+        if (cmd.startDate() != null) assignment.setStartDate(cmd.startDate());
+        assignment.setEndDate(cmd.endDate());
+        assignment.setRoleType(cmd.roleType());
+        assignment.setRoleWeight(cmd.roleWeight());
+        assignment.setUpdatedAt(now);
+
+        // Update the most recent role history entry in-place (no new segment)
+        roleHistoryRepo.updateLastRole(assignment.getId(), cmd.roleType(), cmd.roleWeight(), cmd.endDate());
+
+        TeamAssignment saved = assignmentRepo.save(assignment);
+        audit("TeamAssignment", saved.getId(), "UPDATE",
+                Map.of("allocationPct", cmd.allocationPct().toString(),
+                       "roleType", cmd.roleType()));
+        return saved;
+    }
+
+    @Override
     public void deleteAssignment(UUID assignmentId) {
         getAssignment(assignmentId); // throws NotFound if missing
         roleHistoryRepo.deleteByAssignmentId(assignmentId);

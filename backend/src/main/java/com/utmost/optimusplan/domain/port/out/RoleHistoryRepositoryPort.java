@@ -34,5 +34,11 @@ public interface RoleHistoryRepositoryPort {
      */
     void setLastRoleEndDate(UUID assignmentId, LocalDate effectiveTo);
 
+    /**
+     * Updates the roleType, roleWeight, and effectiveTo on the most recent role segment in place.
+     * Used when editing an assignment directly (no new history segment created).
+     */
+    void updateLastRole(UUID assignmentId, String roleType, java.math.BigDecimal roleWeight, LocalDate effectiveTo);
+
     void deleteByAssignmentId(UUID assignmentId);
 }

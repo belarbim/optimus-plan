@@ -19,6 +19,10 @@ export class AssignmentService {
     return this.http.post<TeamAssignmentDTO>(this.base, body);
   }
 
+  updateAssignment(id: string, body: { teamId: string; allocationPct: number; roleType: string; roleWeight: number; startDate: string; endDate: string | null }): Observable<TeamAssignmentDTO> {
+    return this.http.put<TeamAssignmentDTO>(`${this.base}/${id}`, body);
+  }
+
   endAssignment(id: string, endDate: string): Observable<TeamAssignmentDTO> {
     return this.http.put<TeamAssignmentDTO>(`${this.base}/${id}/end`, null, {
       params: { endDate },

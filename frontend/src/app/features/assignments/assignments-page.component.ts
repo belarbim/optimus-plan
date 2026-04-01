@@ -222,9 +222,41 @@ import { forkJoin } from 'rxjs';
       <ng-container *nzModalContent>
         <form nz-form [formGroup]="editForm" nzLayout="vertical">
           <nz-form-item>
+            <nz-form-label nzRequired>Team</nz-form-label>
+            <nz-form-control nzErrorTip="Required">
+              <nz-select formControlName="teamId" nzPlaceHolder="Select team" style="width:100%">
+                @for (t of teams; track t.id) {
+                  <nz-option [nzValue]="t.id" [nzLabel]="t.name"></nz-option>
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
             <nz-form-label nzRequired>Allocation %</nz-form-label>
             <nz-form-control nzErrorTip="Required">
               <nz-input-number formControlName="allocationPct" [nzMin]="1" [nzMax]="100" style="width:100%"></nz-input-number>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label nzRequired>Role Type</nz-form-label>
+            <nz-form-control nzErrorTip="Required">
+              <nz-select formControlName="roleType" nzPlaceHolder="Select role" style="width:100%">
+                @for (r of roleTypes; track r.id) {
+                  <nz-option [nzValue]="r.roleType" [nzLabel]="r.roleType"></nz-option>
+                }
+              </nz-select>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label nzRequired>Role Weight</nz-form-label>
+            <nz-form-control nzErrorTip="Required">
+              <nz-input-number formControlName="roleWeight" [nzMin]="0" [nzMax]="1" [nzStep]="0.1" style="width:100%"></nz-input-number>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label nzRequired>Start Date</nz-form-label>
+            <nz-form-control nzErrorTip="Required">
+              <nz-date-picker formControlName="startDate" nzFormat="yyyy-MM-dd" style="width:100%"></nz-date-picker>
             </nz-form-control>
           </nz-form-item>
           <nz-form-item>
@@ -312,7 +344,20 @@ export class AssignmentsPageComponent implements OnInit {
       startDate: [null, Validators.required],
       endDate: [null],
     });
-    this.editForm = this.fb.group({ allocationPct: [null, Validators.required], endDate: [null] });
+    this.editForm = this.fb.group({
+      teamId: [null, Validators.required],
+      allocationPct: [null, Validators.required],
+      roleType: [null, Validators.required],
+      roleWeight: [null, Validators.required],
+      startDate: [null, Validators.required],
+      endDate: [null],
+    });
+    this.editForm.get('roleType')!.valueChanges.subscribe(roleType => {
+      if (roleType) {
+        const weight = this.roleTypes.find(r => r.roleType === roleType)?.defaultWeight ?? 1;
+        this.editForm.get('roleWeight')!.setValue(weight, { emitEvent: false });
+      }
+    });
     this.roleForm = this.fb.group({
       roleType: [null, Validators.required],
       roleWeight: [1, Validators.required],
@@ -394,9 +439,13 @@ export class AssignmentsPageComponent implements OnInit {
   openEditModal(a: TeamAssignmentDTO): void {
     this.selectedAssignment = a;
     this.editForm.reset({
+      teamId: a.teamId,
       allocationPct: a.allocationPct,
+      roleType: a.roleType,
+      roleWeight: a.roleWeight,
+      startDate: a.startDate ? new Date(a.startDate + 'T00:00:00') : null,
       endDate: a.endDate ? new Date(a.endDate + 'T00:00:00') : null,
-    });
+    }, { emitEvent: false });
     this.editModalVisible = true;
   }
 
@@ -421,21 +470,19 @@ export class AssignmentsPageComponent implements OnInit {
   submitEdit(): void {
     if (this.editForm.invalid || !this.selectedAssignment) return;
     const v = this.editForm.value;
-    const id = this.selectedAssignment.id;
+    const body = {
+      teamId: v.teamId,
+      allocationPct: v.allocationPct,
+      roleType: v.roleType,
+      roleWeight: v.roleWeight,
+      startDate: this.formatDate(v.startDate),
+      endDate: v.endDate ? this.formatDate(v.endDate) : null,
+    };
     this.saving = true;
-    const allocation$ = this.assignmentService.updateAllocation(id, { allocationPct: v.allocationPct });
-    const endDateStr = v.endDate ? this.formatDate(v.endDate) : null;
-    if (endDateStr) {
-      forkJoin([allocation$, this.assignmentService.endAssignment(id, endDateStr)]).subscribe({
-        next: () => { this.message.success('Assignment updated'); this.saving = false; this.editModalVisible = false; this.loadAllAssignments(); },
-        error: () => { this.message.error('Failed to update'); this.saving = false; },
-      });
-    } else {
-      allocation$.subscribe({
-        next: () => { this.message.success('Assignment updated'); this.saving = false; this.editModalVisible = false; this.loadAllAssignments(); },
-        error: () => { this.message.error('Failed to update'); this.saving = false; },
-      });
-    }
+    this.assignmentService.updateAssignment(this.selectedAssignment.id, body).subscribe({
+      next: () => { this.message.success('Assignment updated'); this.saving = false; this.editModalVisible = false; this.loadAllAssignments(); },
+      error: () => { this.message.error('Failed to update'); this.saving = false; },
+    });
   }
 
   deleteAssignment(a: TeamAssignmentDTO): void {

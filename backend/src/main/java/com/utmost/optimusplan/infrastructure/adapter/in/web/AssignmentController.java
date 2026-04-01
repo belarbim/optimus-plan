@@ -33,6 +33,14 @@ public class AssignmentController {
             @NotNull LocalDate startDate,
             LocalDate endDate) {}
 
+    record UpdateAssignmentRequest(
+            @NotNull UUID teamId,
+            @NotNull @DecimalMin("1") @DecimalMax("100") BigDecimal allocationPct,
+            @NotBlank String roleType,
+            @NotNull @DecimalMin("0") @DecimalMax("1") BigDecimal roleWeight,
+            @NotNull LocalDate startDate,
+            LocalDate endDate) {}
+
     record UpdateAllocationRequest(
             @NotNull @DecimalMin("1") @DecimalMax("100") BigDecimal allocationPct) {}
 
@@ -100,6 +108,15 @@ public class AssignmentController {
                 req.teamId(), req.employeeId(), req.allocationPct(),
                 req.roleType(), req.roleWeight(), req.startDate(), req.endDate()));
         return AssignmentResponse.from(assignment);
+    }
+
+    @PutMapping("/{id}")
+    public AssignmentResponse updateAssignment(@PathVariable UUID id,
+                                               @Valid @RequestBody UpdateAssignmentRequest req) {
+        return AssignmentResponse.from(
+                assignmentUseCase.updateAssignment(new AssignmentUseCase.UpdateAssignmentCommand(
+                        id, req.teamId(), req.allocationPct(), req.roleType(), req.roleWeight(),
+                        req.startDate(), req.endDate())));
     }
 
     @PutMapping("/{id}/end")

@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -46,8 +47,20 @@ public class AuditPersistenceAdapter implements AuditRepositoryPort {
     public Page<AuditLog> findWithFilters(String entityType, String action,
                                           LocalDateTime from, LocalDateTime to,
                                           Pageable pageable) {
-        return repo.findWithFilters(entityType, action, from, to, pageable)
-                .map(this::toDomain);
+        Specification<AuditLogJpaEntity> spec = Specification.where(null);
+        if (entityType != null) {
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("entityType"), entityType));
+        }
+        if (action != null) {
+            spec = spec.and((root, q, cb) -> cb.equal(root.get("action"), action));
+        }
+        if (from != null) {
+            spec = spec.and((root, q, cb) -> cb.greaterThanOrEqualTo(root.get("timestamp"), from));
+        }
+        if (to != null) {
+            spec = spec.and((root, q, cb) -> cb.lessThanOrEqualTo(root.get("timestamp"), to));
+        }
+        return repo.findAll(spec, pageable).map(this::toDomain);
     }
 
     private AuditLog toDomain(AuditLogJpaEntity e) {

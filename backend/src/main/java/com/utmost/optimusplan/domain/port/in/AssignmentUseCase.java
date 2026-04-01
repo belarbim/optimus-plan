@@ -29,6 +29,15 @@ public interface AssignmentUseCase {
             BigDecimal roleWeight,
             LocalDate effectiveFrom) {}
 
+    record UpdateAssignmentCommand(
+            UUID assignmentId,
+            UUID teamId,
+            BigDecimal allocationPct,
+            String roleType,
+            BigDecimal roleWeight,
+            LocalDate startDate,
+            LocalDate endDate) {}
+
     TeamAssignment assign(CreateAssignmentCommand cmd);
 
     TeamAssignment endAssignment(EndAssignmentCommand cmd);
@@ -42,6 +51,8 @@ public interface AssignmentUseCase {
     List<TeamAssignment> findByEmployee(UUID employeeId);
 
     List<RoleHistory> getRoleHistory(UUID assignmentId);
+
+    TeamAssignment updateAssignment(UpdateAssignmentCommand cmd);
 
     void deleteAssignment(UUID assignmentId);
 }

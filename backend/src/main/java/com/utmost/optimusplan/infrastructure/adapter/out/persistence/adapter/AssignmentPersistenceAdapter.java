@@ -78,8 +78,8 @@ public class AssignmentPersistenceAdapter implements AssignmentRepositoryPort {
 
     private TeamAssignment toDomain(TeamAssignmentJpaEntity e) {
         String employeeName = e.getEmployee().getFirstName() + " " + e.getEmployee().getLastName();
-        // Resolve current role from role_history (effectiveTo IS NULL)
-        var currentRole = roleHistoryRepo.findCurrentByAssignmentId(e.getId());
+        // Resolve current role from most recent role_history entry (works for both active and ended assignments)
+        var currentRole = roleHistoryRepo.findTopByAssignmentIdOrderByEffectiveFromDesc(e.getId());
         String roleType = currentRole.map(rh -> rh.getRoleType()).orElse(null);
         BigDecimal roleWeight = currentRole.map(rh -> rh.getRoleWeight()).orElse(null);
         return TeamAssignment.builder()

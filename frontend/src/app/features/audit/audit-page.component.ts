@@ -129,8 +129,8 @@ export class AuditPageComponent implements OnInit {
   filterAction: string | null = null;
   dateRange: [Date, Date] | null = null;
 
-  entityTypes = ['TEAM', 'EMPLOYEE', 'ASSIGNMENT', 'CAPACITY', 'ALERT', 'ROLE_TYPE', 'HOLIDAY'];
-  actions = ['CREATE', 'UPDATE', 'DELETE', 'READ'];
+  entityTypes = ['Team', 'Employee', 'TeamAssignment', 'RoleHistory', 'PublicHoliday', 'RoleTypeConfig', 'CategoryAllocation', 'CapacitySnapshot', 'CapacityAlert'];
+  actions = ['CREATE', 'UPDATE', 'DELETE', 'END', 'UPDATE_ALLOCATION', 'CHANGE_ROLE', 'SET_CATEGORIES', 'GENERATE_SNAPSHOT', 'UPSERT'];
 
   ngOnInit(): void {
     this.loadLogs();
