@@ -16,7 +16,8 @@ public interface AssignmentUseCase {
             BigDecimal allocationPct,
             String roleType,
             BigDecimal roleWeight,
-            LocalDate startDate) {}
+            LocalDate startDate,
+            LocalDate endDate) {}
 
     record EndAssignmentCommand(UUID assignmentId, LocalDate endDate) {}
 

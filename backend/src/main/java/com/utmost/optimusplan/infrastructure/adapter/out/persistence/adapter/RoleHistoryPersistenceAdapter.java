@@ -55,6 +55,14 @@ public class RoleHistoryPersistenceAdapter implements RoleHistoryRepositoryPort 
     }
 
     @Override
+    public void setLastRoleEndDate(UUID assignmentId, LocalDate effectiveTo) {
+        repo.findTopByAssignmentIdOrderByEffectiveFromDesc(assignmentId).ifPresent(entity -> {
+            entity.setEffectiveTo(effectiveTo);
+            repo.save(entity);
+        });
+    }
+
+    @Override
     public void deleteByAssignmentId(UUID assignmentId) {
         repo.deleteByAssignmentId(assignmentId);
     }

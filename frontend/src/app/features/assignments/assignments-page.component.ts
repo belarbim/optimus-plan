@@ -121,19 +121,21 @@ import { forkJoin } from 'rxjs';
                 }
               </td>
               <td>
+                <button nz-button nzType="link" nzSize="small" (click)="openEditModal(a)" title="Edit Assignment">
+                  <span nz-icon nzType="edit"></span>
+                </button>
                 @if (!a.endDate) {
-                  <button nz-button nzType="link" nzSize="small" (click)="openEndModal(a)" title="End Assignment">
-                    <span nz-icon nzType="close-circle"></span>
-                  </button>
-                  <nz-divider nzType="vertical"></nz-divider>
-                  <button nz-button nzType="link" nzSize="small" (click)="openAllocationModal(a)" title="Update Allocation">
-                    <span nz-icon nzType="edit"></span>
-                  </button>
                   <nz-divider nzType="vertical"></nz-divider>
                   <button nz-button nzType="link" nzSize="small" (click)="openRoleModal(a)" title="Change Role">
                     <span nz-icon nzType="setting"></span>
                   </button>
                 }
+                <nz-divider nzType="vertical"></nz-divider>
+                <button nz-button nzType="link" nzSize="small" nzDanger
+                  nz-popconfirm nzPopconfirmTitle="Delete this assignment?"
+                  (nzOnConfirm)="deleteAssignment(a)" title="Delete">
+                  <span nz-icon nzType="delete"></span>
+                </button>
               </td>
             </tr>
           }
@@ -199,44 +201,36 @@ import { forkJoin } from 'rxjs';
               <nz-date-picker formControlName="startDate" nzFormat="yyyy-MM-dd" style="width:100%"></nz-date-picker>
             </nz-form-control>
           </nz-form-item>
-        </form>
-      </ng-container>
-    </nz-modal>
-
-    <!-- End Assignment Modal -->
-    <nz-modal
-      [(nzVisible)]="endModalVisible"
-      nzTitle="End Assignment"
-      (nzOnCancel)="endModalVisible = false"
-      (nzOnOk)="submitEnd()"
-      [nzOkLoading]="saving"
-    >
-      <ng-container *nzModalContent>
-        <form nz-form [formGroup]="endForm" nzLayout="vertical">
           <nz-form-item>
-            <nz-form-label nzRequired>End Date</nz-form-label>
-            <nz-form-control nzErrorTip="Required">
-              <nz-date-picker formControlName="endDate" nzFormat="yyyy-MM-dd" style="width:100%"></nz-date-picker>
+            <nz-form-label>End Date</nz-form-label>
+            <nz-form-control nzExtra="Optional — leave blank for open-ended assignment">
+              <nz-date-picker formControlName="endDate" nzFormat="yyyy-MM-dd" style="width:100%" nzAllowClear></nz-date-picker>
             </nz-form-control>
           </nz-form-item>
         </form>
       </ng-container>
     </nz-modal>
 
-    <!-- Update Allocation Modal -->
+    <!-- Edit Assignment Modal -->
     <nz-modal
-      [(nzVisible)]="allocationModalVisible"
-      nzTitle="Update Allocation"
-      (nzOnCancel)="allocationModalVisible = false"
-      (nzOnOk)="submitAllocation()"
+      [(nzVisible)]="editModalVisible"
+      nzTitle="Edit Assignment"
+      (nzOnCancel)="editModalVisible = false"
+      (nzOnOk)="submitEdit()"
       [nzOkLoading]="saving"
     >
       <ng-container *nzModalContent>
-        <form nz-form [formGroup]="allocationForm" nzLayout="vertical">
+        <form nz-form [formGroup]="editForm" nzLayout="vertical">
           <nz-form-item>
             <nz-form-label nzRequired>Allocation %</nz-form-label>
             <nz-form-control nzErrorTip="Required">
               <nz-input-number formControlName="allocationPct" [nzMin]="1" [nzMax]="100" style="width:100%"></nz-input-number>
+            </nz-form-control>
+          </nz-form-item>
+          <nz-form-item>
+            <nz-form-label>End Date</nz-form-label>
+            <nz-form-control nzExtra="Leave blank to keep the assignment open-ended">
+              <nz-date-picker formControlName="endDate" nzFormat="yyyy-MM-dd" style="width:100%" nzAllowClear></nz-date-picker>
             </nz-form-control>
           </nz-form-item>
         </form>
@@ -301,13 +295,11 @@ export class AssignmentsPageComponent implements OnInit {
   selectedAssignment: TeamAssignmentDTO | null = null;
 
   createModalVisible = false;
-  endModalVisible = false;
-  allocationModalVisible = false;
+  editModalVisible = false;
   roleModalVisible = false;
 
   createForm!: FormGroup;
-  endForm!: FormGroup;
-  allocationForm!: FormGroup;
+  editForm!: FormGroup;
   roleForm!: FormGroup;
 
   ngOnInit(): void {
@@ -318,9 +310,9 @@ export class AssignmentsPageComponent implements OnInit {
       roleType: [null, Validators.required],
       roleWeight: [1, Validators.required],
       startDate: [null, Validators.required],
+      endDate: [null],
     });
-    this.endForm = this.fb.group({ endDate: [null, Validators.required] });
-    this.allocationForm = this.fb.group({ allocationPct: [null, Validators.required] });
+    this.editForm = this.fb.group({ allocationPct: [null, Validators.required], endDate: [null] });
     this.roleForm = this.fb.group({
       roleType: [null, Validators.required],
       roleWeight: [1, Validators.required],
@@ -391,7 +383,7 @@ export class AssignmentsPageComponent implements OnInit {
 
   formatDate(date: Date | null): string {
     if (!date) return '';
-    return date.toISOString().split('T')[0];
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 
   openCreateModal(): void {
@@ -399,16 +391,13 @@ export class AssignmentsPageComponent implements OnInit {
     this.createModalVisible = true;
   }
 
-  openEndModal(a: TeamAssignmentDTO): void {
+  openEditModal(a: TeamAssignmentDTO): void {
     this.selectedAssignment = a;
-    this.endForm.reset();
-    this.endModalVisible = true;
-  }
-
-  openAllocationModal(a: TeamAssignmentDTO): void {
-    this.selectedAssignment = a;
-    this.allocationForm.patchValue({ allocationPct: a.allocationPct });
-    this.allocationModalVisible = true;
+    this.editForm.reset({
+      allocationPct: a.allocationPct,
+      endDate: a.endDate ? new Date(a.endDate + 'T00:00:00') : null,
+    });
+    this.editModalVisible = true;
   }
 
   openRoleModal(a: TeamAssignmentDTO): void {
@@ -420,7 +409,8 @@ export class AssignmentsPageComponent implements OnInit {
   submitCreate(): void {
     if (this.createForm.invalid) { Object.values(this.createForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity(); }); return; }
     const v = this.createForm.value;
-    const body = { ...v, startDate: this.formatDate(v.startDate) };
+    const endDateStr = v.endDate ? this.formatDate(v.endDate) : null;
+    const body = { ...v, startDate: this.formatDate(v.startDate), endDate: endDateStr };
     this.saving = true;
     this.assignmentService.createAssignment(body).subscribe({
       next: () => { this.message.success('Assignment created'); this.saving = false; this.createModalVisible = false; this.loadAllAssignments(); },
@@ -428,22 +418,30 @@ export class AssignmentsPageComponent implements OnInit {
     });
   }
 
-  submitEnd(): void {
-    if (this.endForm.invalid || !this.selectedAssignment) return;
-    const endDate = this.formatDate(this.endForm.value.endDate);
+  submitEdit(): void {
+    if (this.editForm.invalid || !this.selectedAssignment) return;
+    const v = this.editForm.value;
+    const id = this.selectedAssignment.id;
     this.saving = true;
-    this.assignmentService.endAssignment(this.selectedAssignment.id, endDate).subscribe({
-      next: () => { this.message.success('Assignment ended'); this.saving = false; this.endModalVisible = false; this.loadAllAssignments(); },
-      error: () => { this.message.error('Failed'); this.saving = false; },
-    });
+    const allocation$ = this.assignmentService.updateAllocation(id, { allocationPct: v.allocationPct });
+    const endDateStr = v.endDate ? this.formatDate(v.endDate) : null;
+    if (endDateStr) {
+      forkJoin([allocation$, this.assignmentService.endAssignment(id, endDateStr)]).subscribe({
+        next: () => { this.message.success('Assignment updated'); this.saving = false; this.editModalVisible = false; this.loadAllAssignments(); },
+        error: () => { this.message.error('Failed to update'); this.saving = false; },
+      });
+    } else {
+      allocation$.subscribe({
+        next: () => { this.message.success('Assignment updated'); this.saving = false; this.editModalVisible = false; this.loadAllAssignments(); },
+        error: () => { this.message.error('Failed to update'); this.saving = false; },
+      });
+    }
   }
 
-  submitAllocation(): void {
-    if (this.allocationForm.invalid || !this.selectedAssignment) return;
-    this.saving = true;
-    this.assignmentService.updateAllocation(this.selectedAssignment.id, this.allocationForm.value).subscribe({
-      next: () => { this.message.success('Allocation updated'); this.saving = false; this.allocationModalVisible = false; this.loadAllAssignments(); },
-      error: () => { this.message.error('Failed'); this.saving = false; },
+  deleteAssignment(a: TeamAssignmentDTO): void {
+    this.assignmentService.deleteAssignment(a.id).subscribe({
+      next: () => { this.message.success('Assignment deleted'); this.loadAllAssignments(); },
+      error: () => this.message.error('Failed to delete'),
     });
   }
 

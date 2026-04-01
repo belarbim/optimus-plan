@@ -30,7 +30,8 @@ public class AssignmentController {
             @NotNull @DecimalMin("1") @DecimalMax("100") BigDecimal allocationPct,
             @NotBlank String roleType,
             @NotNull @DecimalMin("0") @DecimalMax("1") BigDecimal roleWeight,
-            @NotNull LocalDate startDate) {}
+            @NotNull LocalDate startDate,
+            LocalDate endDate) {}
 
     record UpdateAllocationRequest(
             @NotNull @DecimalMin("1") @DecimalMax("100") BigDecimal allocationPct) {}
@@ -97,7 +98,7 @@ public class AssignmentController {
     public AssignmentResponse create(@Valid @RequestBody CreateAssignmentRequest req) {
         TeamAssignment assignment = assignmentUseCase.assign(new AssignmentUseCase.CreateAssignmentCommand(
                 req.teamId(), req.employeeId(), req.allocationPct(),
-                req.roleType(), req.roleWeight(), req.startDate()));
+                req.roleType(), req.roleWeight(), req.startDate(), req.endDate()));
         return AssignmentResponse.from(assignment);
     }
 

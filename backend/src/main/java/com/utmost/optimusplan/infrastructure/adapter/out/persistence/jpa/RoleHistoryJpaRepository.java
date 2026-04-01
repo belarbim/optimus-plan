@@ -15,6 +15,8 @@ public interface RoleHistoryJpaRepository extends JpaRepository<RoleHistoryJpaEn
 
     List<RoleHistoryJpaEntity> findByAssignmentIdOrderByEffectiveFromAsc(UUID assignmentId);
 
+    Optional<RoleHistoryJpaEntity> findTopByAssignmentIdOrderByEffectiveFromDesc(UUID assignmentId);
+
     @Query("SELECT rh FROM RoleHistoryJpaEntity rh WHERE rh.assignment.id = :assignmentId AND rh.effectiveTo IS NULL")
     Optional<RoleHistoryJpaEntity> findCurrentByAssignmentId(@Param("assignmentId") UUID assignmentId);
 

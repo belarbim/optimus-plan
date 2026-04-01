@@ -28,5 +28,11 @@ public interface RoleHistoryRepositoryPort {
      */
     void closeCurrentRole(UUID assignmentId, LocalDate effectiveTo);
 
+    /**
+     * Sets effectiveTo on the most recent role segment regardless of whether it is open or already closed.
+     * Used when editing the end date of an assignment.
+     */
+    void setLastRoleEndDate(UUID assignmentId, LocalDate effectiveTo);
+
     void deleteByAssignmentId(UUID assignmentId);
 }

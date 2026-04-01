@@ -83,21 +83,21 @@ public class AssignmentApplicationService implements AssignmentUseCase {
                 .roleType(cmd.roleType())
                 .roleWeight(cmd.roleWeight())
                 .startDate(cmd.startDate())
-                .endDate(null)
+                .endDate(cmd.endDate())
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
 
         TeamAssignment saved = assignmentRepo.save(assignment);
 
-        // Create the initial role history entry (open-ended)
+        // Create the initial role history entry (closed if endDate provided)
         RoleHistory initialHistory = RoleHistory.builder()
                 .id(UUID.randomUUID())
                 .assignmentId(saved.getId())
                 .roleType(cmd.roleType())
                 .roleWeight(cmd.roleWeight())
                 .effectiveFrom(cmd.startDate())
-                .effectiveTo(null)
+                .effectiveTo(cmd.endDate())
                 .createdAt(now)
                 .build();
         roleHistoryRepo.save(initialHistory);
@@ -113,10 +113,6 @@ public class AssignmentApplicationService implements AssignmentUseCase {
     public TeamAssignment endAssignment(EndAssignmentCommand cmd) {
         TeamAssignment assignment = getAssignment(cmd.assignmentId());
 
-        if (!assignment.isActive()) {
-            throw new DomainException(new DomainError.BusinessRule(
-                    "Assignment is already ended"));
-        }
         if (cmd.endDate().isBefore(assignment.getStartDate())) {
             throw new DomainException(new DomainError.BusinessRule(
                     "End date cannot be before the assignment start date"));
@@ -125,8 +121,8 @@ public class AssignmentApplicationService implements AssignmentUseCase {
         assignment.setEndDate(cmd.endDate());
         assignment.setUpdatedAt(LocalDateTime.now());
 
-        // Close the currently open role history segment
-        roleHistoryRepo.closeCurrentRole(assignment.getId(), cmd.endDate());
+        // Update the end date on the most recent role history segment (open or closed)
+        roleHistoryRepo.setLastRoleEndDate(assignment.getId(), cmd.endDate());
 
         TeamAssignment saved = assignmentRepo.save(assignment);
         audit("TeamAssignment", saved.getId(), "END",
