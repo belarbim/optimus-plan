@@ -15,6 +15,7 @@ import com.utmost.optimusplan.domain.port.out.HolidayRepositoryPort;
 import com.utmost.optimusplan.domain.port.out.RoleHistoryRepositoryPort;
 import com.utmost.optimusplan.domain.port.out.SnapshotRepositoryPort;
 import com.utmost.optimusplan.domain.port.out.TeamRepositoryPort;
+import com.utmost.optimusplan.domain.port.out.TeamTypeRepositoryPort;
 import com.utmost.optimusplan.domain.port.out.WorkingDaysRepositoryPort;
 import com.utmost.optimusplan.domain.service.BusinessDayCalculator;
 import com.utmost.optimusplan.domain.service.CapacityCalculator;
@@ -31,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +42,7 @@ public class CapacityApplicationService implements CapacityUseCase {
 
 
     private final TeamRepositoryPort        teamRepo;
+    private final TeamTypeRepositoryPort    teamTypeRepo;
     private final AssignmentRepositoryPort  assignmentRepo;
     private final RoleHistoryRepositoryPort roleHistoryRepo;
     private final CategoryRepositoryPort    categoryRepo;
@@ -48,6 +51,7 @@ public class CapacityApplicationService implements CapacityUseCase {
     private final SnapshotRepositoryPort    snapshotRepo;
 
     public CapacityApplicationService(TeamRepositoryPort teamRepo,
+                                       TeamTypeRepositoryPort teamTypeRepo,
                                        AssignmentRepositoryPort assignmentRepo,
                                        RoleHistoryRepositoryPort roleHistoryRepo,
                                        CategoryRepositoryPort categoryRepo,
@@ -55,6 +59,7 @@ public class CapacityApplicationService implements CapacityUseCase {
                                        WorkingDaysRepositoryPort workingDaysRepo,
                                        SnapshotRepositoryPort snapshotRepo) {
         this.teamRepo        = teamRepo;
+        this.teamTypeRepo    = teamTypeRepo;
         this.assignmentRepo  = assignmentRepo;
         this.roleHistoryRepo = roleHistoryRepo;
         this.categoryRepo    = categoryRepo;
@@ -222,9 +227,10 @@ public class CapacityApplicationService implements CapacityUseCase {
         List<CategoryAllocation> categories = categoryRepo.findByTeamId(query.teamId());
         List<PublicHoliday> holidays        = loadHolidays(query.month());
         Optional<WorkingDaysConfig> wdc     = workingDaysRepo.findByMonth(query.month());
+        Set<String> totalCatNames           = resolveTotalCapacityCategoryNames(team);
 
         CapacityResult simulated = CapacityCalculator.compute(
-                team, query.month(), assignments, categories, histories, holidays, wdc);
+                team, query.month(), assignments, categories, histories, holidays, wdc, totalCatNames);
 
         // Build per-category deltas
         Map<String, BigDecimal> deltas = new LinkedHashMap<>();
@@ -297,7 +303,25 @@ public class CapacityApplicationService implements CapacityUseCase {
                 .flatMap(a -> roleHistoryRepo.findByAssignmentId(a.getId()).stream())
                 .collect(Collectors.toList());
 
-        return CapacityCalculator.compute(team, month, assignments, categories, histories, holidays, wdc);
+        Set<String> totalCatNames = resolveTotalCapacityCategoryNames(team);
+
+        return CapacityCalculator.compute(team, month, assignments, categories, histories, holidays, wdc, totalCatNames);
+    }
+
+    /**
+     * Returns the lower-cased names of categories flagged as isPartOfTotalCapacity
+     * for the given team's team type. Returns an empty set when the team has no type.
+     */
+    private Set<String> resolveTotalCapacityCategoryNames(Team team) {
+        if (team.getTeamTypeId() == null) {
+            return Set.of();
+        }
+        return teamTypeRepo.findById(team.getTeamTypeId())
+                .map(tt -> tt.getCategories().stream()
+                        .filter(com.utmost.optimusplan.domain.model.TeamTypeCategory::isPartOfTotalCapacity)
+                        .map(c -> c.getName().toLowerCase())
+                        .collect(Collectors.toSet()))
+                .orElse(Set.of());
     }
 
     private List<PublicHoliday> loadHolidays(String month) {

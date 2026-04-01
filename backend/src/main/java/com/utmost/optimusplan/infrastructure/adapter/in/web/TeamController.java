@@ -18,15 +18,16 @@ public class TeamController {
 
     private final TeamUseCase teamUseCase;
 
-    record TeamRequest(@NotBlank String name, UUID parentId) {}
+    record TeamRequest(@NotBlank String name, UUID parentId, UUID teamTypeId) {}
 
-    record TeamResponse(UUID id, String name, UUID parentId, List<TeamResponse> children,
-                        String createdAt, String updatedAt) {
+    record TeamResponse(UUID id, String name, UUID parentId, UUID teamTypeId,
+                        List<TeamResponse> children, String createdAt, String updatedAt) {
         static TeamResponse from(Team t) {
             return new TeamResponse(
                     t.getId(),
                     t.getName(),
                     t.getParentId(),
+                    t.getTeamTypeId(),
                     t.getChildren() == null ? List.of() :
                             t.getChildren().stream().map(TeamResponse::from).toList(),
                     t.getCreatedAt() != null ? t.getCreatedAt().toString() : null,
@@ -37,7 +38,8 @@ public class TeamController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TeamResponse create(@Valid @RequestBody TeamRequest req) {
-        return TeamResponse.from(teamUseCase.create(new TeamUseCase.CreateTeamCommand(req.name(), req.parentId())));
+        return TeamResponse.from(teamUseCase.create(
+                new TeamUseCase.CreateTeamCommand(req.name(), req.parentId(), req.teamTypeId())));
     }
 
     @GetMapping
@@ -52,7 +54,7 @@ public class TeamController {
 
     @PutMapping("/{id}")
     public TeamResponse update(@PathVariable UUID id, @Valid @RequestBody TeamRequest req) {
-        return TeamResponse.from(teamUseCase.update(new TeamUseCase.UpdateTeamCommand(id, req.name())));
+        return TeamResponse.from(teamUseCase.update(new TeamUseCase.UpdateTeamCommand(id, req.name(), req.teamTypeId())));
     }
 
     @DeleteMapping("/{id}")

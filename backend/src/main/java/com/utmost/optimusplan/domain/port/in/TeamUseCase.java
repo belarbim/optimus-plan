@@ -7,9 +7,9 @@ import java.util.UUID;
 
 public interface TeamUseCase {
 
-    record CreateTeamCommand(String name, UUID parentId) {}
+    record CreateTeamCommand(String name, UUID parentId, UUID teamTypeId) {}
 
-    record UpdateTeamCommand(UUID id, String name) {}
+    record UpdateTeamCommand(UUID id, String name, UUID teamTypeId) {}
 
     Team create(CreateTeamCommand cmd);
 

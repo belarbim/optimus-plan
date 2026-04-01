@@ -56,7 +56,8 @@ public class CapacityCalculator {
             List<CategoryAllocation> categories,
             List<RoleHistory> allRoleHistories,
             List<PublicHoliday> holidays,
-            Optional<WorkingDaysConfig> workingDaysConfig) {
+            Optional<WorkingDaysConfig> workingDaysConfig,
+            java.util.Set<String> totalCapacityCategoryNames) {
 
         YearMonth ym        = YearMonth.parse(month);
         LocalDate monthStart = ym.atDay(1);
@@ -74,7 +75,7 @@ public class CapacityCalculator {
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(3, RoundingMode.HALF_UP);
 
-        List<CategoryBreakdown> breakdown = buildBreakdown(categories, totalCapacity);
+        List<CategoryBreakdown> breakdown = buildBreakdown(categories, totalCapacity, totalCapacityCategoryNames);
 
         return new CapacityResult(
                 team.getId(),
@@ -161,40 +162,41 @@ public class CapacityCalculator {
     /**
      * Breakdown formula:
      * <ol>
-     *   <li>Incident man-days  = totalCapacity × incidentPct / 100</li>
-     *   <li>Remaining capacity = totalCapacity − incidentManDays</li>
-     *   <li>Project / CI / IT4IT man-days = remainingCapacity × categoryPct / 100
+     *   <li>Total-capacity categories (overhead) man-days = totalCapacity × pct / 100  each</li>
+     *   <li>Remaining capacity = totalCapacity − sum(overhead man-days)</li>
+     *   <li>Remaining-capacity categories man-days = remainingCapacity × pct / 100
      *       (their pcts are each expressed as % of the remaining pool)</li>
      * </ol>
+     *
+     * @param totalCapacityCategoryNames names (lower-cased) of categories flagged as
+     *                                   {@code isPartOfTotalCapacity} in the team type.
+     *                                   Empty set means all categories are treated as remaining.
      */
-    private static final String INCIDENT = "Incident";
-
     private static List<CategoryBreakdown> buildBreakdown(
-            List<CategoryAllocation> categories, BigDecimal totalCapacity) {
+            List<CategoryAllocation> categories,
+            BigDecimal totalCapacity,
+            java.util.Set<String> totalCapacityCategoryNames) {
 
-        BigDecimal incidentPct = categories.stream()
-                .filter(c -> INCIDENT.equalsIgnoreCase(c.getCategoryName()))
-                .map(CategoryAllocation::getAllocationPct)
-                .findFirst()
-                .orElse(BigDecimal.ZERO);
+        // 1. Compute overhead man-days for every total-capacity category
+        BigDecimal overheadManDays = categories.stream()
+                .filter(c -> totalCapacityCategoryNames.contains(c.getCategoryName().toLowerCase()))
+                .map(c -> totalCapacity.multiply(
+                        c.getAllocationPct().divide(BigDecimal.valueOf(100), SCALE, RoundingMode.HALF_UP)))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal incidentManDays = totalCapacity
-                .multiply(incidentPct.divide(BigDecimal.valueOf(100), SCALE, RoundingMode.HALF_UP))
-                .setScale(3, RoundingMode.HALF_UP);
+        // 2. Remaining capacity after deducting overhead
+        BigDecimal remainingCapacity = totalCapacity.subtract(overheadManDays).max(BigDecimal.ZERO);
 
-        BigDecimal remainingCapacity = totalCapacity.subtract(incidentManDays)
-                .max(BigDecimal.ZERO);
-
+        // 3. Map each category to its man-days
         return categories.stream()
                 .map(cat -> {
-                    if (INCIDENT.equalsIgnoreCase(cat.getCategoryName())) {
-                        return new CategoryBreakdown(cat.getCategoryName(), incidentManDays);
-                    }
                     BigDecimal fraction = cat.getAllocationPct()
                             .divide(BigDecimal.valueOf(100), SCALE, RoundingMode.HALF_UP);
-                    return new CategoryBreakdown(
-                            cat.getCategoryName(),
-                            remainingCapacity.multiply(fraction).setScale(3, RoundingMode.HALF_UP));
+                    boolean isOverhead = totalCapacityCategoryNames.contains(cat.getCategoryName().toLowerCase());
+                    BigDecimal manDays = isOverhead
+                            ? totalCapacity.multiply(fraction)
+                            : remainingCapacity.multiply(fraction);
+                    return new CategoryBreakdown(cat.getCategoryName(), manDays.setScale(3, RoundingMode.HALF_UP));
                 })
                 .collect(Collectors.toList());
     }

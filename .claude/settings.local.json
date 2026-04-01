@@ -15,7 +15,8 @@
       "Bash(node -e \"const v=JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\)\\); console.log\\(v.filter\\(x=>x.startsWith\\(''''21''''\\)\\).slice\\(-3\\).join\\(''''\\\\n''''\\)\\)\")",
       "Bash(npx tsc:*)",
       "Read(//Users/mohamedbelarbi/development/**)",
-      "Bash(mvn compile:*)"
+      "Bash(mvn compile:*)",
+      "Bash(grep -l \"nz-tabset\\\\|tabset\" /Users/mohamedbelarbi/development/optimus-plan/frontend/node_modules/ng-zorro-antd/fesm2022/*.mjs)"
     ]
   }
 }

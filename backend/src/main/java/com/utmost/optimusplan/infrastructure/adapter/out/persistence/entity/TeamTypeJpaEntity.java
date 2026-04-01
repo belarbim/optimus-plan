@@ -11,32 +11,23 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "team")
+@Table(name = "team_type")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TeamJpaEntity {
+public class TeamTypeJpaEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
-    private TeamJpaEntity parent;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team_type_id")
-    private TeamTypeJpaEntity teamType;
-
-    @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "teamType", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<TeamJpaEntity> children = new ArrayList<>();
+    private List<TeamTypeCategoryJpaEntity> categories = new ArrayList<>();
 
     @CreationTimestamp
     private LocalDateTime createdAt;

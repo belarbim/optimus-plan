@@ -15,9 +15,10 @@ public interface CategoryJpaRepository extends JpaRepository<CategoryAllocationJ
 
     List<CategoryAllocationJpaEntity> findByTeamId(UUID teamId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    void deleteByTeamId(UUID teamId);
+    @Query("DELETE FROM CategoryAllocationJpaEntity c WHERE c.team.id = :teamId")
+    void deleteByTeamId(@Param("teamId") UUID teamId);
 
     @Query("SELECT COALESCE(SUM(ca.allocationPct), 0) FROM CategoryAllocationJpaEntity ca WHERE ca.team.id = :teamId")
     BigDecimal sumAllocationByTeamId(@Param("teamId") UUID teamId);

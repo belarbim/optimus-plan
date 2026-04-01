@@ -21,6 +21,8 @@ public class Team {
     private UUID id;
     private String name;
     private UUID parentId;
+    /** Set on root teams; inherited by child teams from the parent. Null if no type defined. */
+    private UUID teamTypeId;
 
     @Builder.Default
     private List<Team> children = new ArrayList<>();

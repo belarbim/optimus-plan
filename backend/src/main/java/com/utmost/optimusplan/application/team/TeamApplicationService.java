@@ -7,6 +7,7 @@ import com.utmost.optimusplan.domain.port.in.TeamUseCase;
 import com.utmost.optimusplan.domain.port.out.AssignmentRepositoryPort;
 import com.utmost.optimusplan.domain.port.out.AuditRepositoryPort;
 import com.utmost.optimusplan.domain.port.out.TeamRepositoryPort;
+import com.utmost.optimusplan.domain.port.out.TeamTypeRepositoryPort;
 import com.utmost.optimusplan.domain.model.AuditLog;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,13 +22,16 @@ import java.util.UUID;
 public class TeamApplicationService implements TeamUseCase {
 
     private final TeamRepositoryPort       teamRepo;
+    private final TeamTypeRepositoryPort   teamTypeRepo;
     private final AssignmentRepositoryPort assignmentRepo;
     private final AuditRepositoryPort      auditRepo;
 
     public TeamApplicationService(TeamRepositoryPort teamRepo,
+                                   TeamTypeRepositoryPort teamTypeRepo,
                                    AssignmentRepositoryPort assignmentRepo,
                                    AuditRepositoryPort auditRepo) {
         this.teamRepo       = teamRepo;
+        this.teamTypeRepo   = teamTypeRepo;
         this.assignmentRepo = assignmentRepo;
         this.auditRepo      = auditRepo;
     }
@@ -40,6 +44,8 @@ public class TeamApplicationService implements TeamUseCase {
     public Team create(CreateTeamCommand cmd) {
         validateNameUniqueness(cmd.name(), cmd.parentId());
 
+        UUID resolvedTeamTypeId = null;
+
         if (cmd.parentId() != null) {
             Team parent = teamRepo.findById(cmd.parentId())
                     .orElseThrow(() -> new DomainException(
@@ -48,6 +54,16 @@ public class TeamApplicationService implements TeamUseCase {
                 throw new DomainException(new DomainError.BusinessRule(
                         "A sub-team cannot be used as a parent team"));
             }
+            // Child inherits the parent's team type
+            resolvedTeamTypeId = parent.getTeamTypeId();
+        } else {
+            // Root team: validate the provided teamTypeId if any
+            if (cmd.teamTypeId() != null) {
+                if (!teamTypeRepo.existsById(cmd.teamTypeId())) {
+                    throw new DomainException(new DomainError.NotFound("TeamType", cmd.teamTypeId()));
+                }
+                resolvedTeamTypeId = cmd.teamTypeId();
+            }
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -55,6 +71,7 @@ public class TeamApplicationService implements TeamUseCase {
                 .id(UUID.randomUUID())
                 .name(cmd.name())
                 .parentId(cmd.parentId())
+                .teamTypeId(resolvedTeamTypeId)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -75,6 +92,15 @@ public class TeamApplicationService implements TeamUseCase {
         }
 
         team.setName(cmd.name());
+        // Only root teams can have a team type set directly
+        if (team.getParentId() == null && cmd.teamTypeId() != null) {
+            if (!teamTypeRepo.existsById(cmd.teamTypeId())) {
+                throw new DomainException(new DomainError.NotFound("TeamType", cmd.teamTypeId()));
+            }
+            team.setTeamTypeId(cmd.teamTypeId());
+        } else if (team.getParentId() == null) {
+            team.setTeamTypeId(null);
+        }
         team.setUpdatedAt(LocalDateTime.now());
 
         Team saved = teamRepo.save(team);

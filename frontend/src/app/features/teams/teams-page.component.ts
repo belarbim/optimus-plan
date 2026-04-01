@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule, FormArray } from '@angular/forms';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzModalModule } from 'ng-zorro-antd/modal';
@@ -18,16 +18,20 @@ import { NzDrawerModule } from 'ng-zorro-antd/drawer';
 import { NzDividerModule } from 'ng-zorro-antd/divider';
 import { NzProgressModule } from 'ng-zorro-antd/progress';
 import { NzAlertModule } from 'ng-zorro-antd/alert';
+import { NzSwitchModule } from 'ng-zorro-antd/switch';
+import { NzTabsModule } from 'ng-zorro-antd/tabs';
 import { PageHeaderComponent } from '../../shared/atoms/page-header/page-header.component';
 import { TeamService } from '../../core/services/team.service';
+import { TeamTypeService } from '../../core/services/team-type.service';
 import { TeamDTO } from '../../core/models/team.model';
+import { TeamTypeDTO } from '../../core/models/team-type.model';
 import { CategoryAllocationDTO } from '../../core/models/snapshot.model';
+import { forkJoin } from 'rxjs';
 
 interface CategoryRow {
-  categoryName: string;
-  label: string;
-  icon: string;
-  color: string;
+  name: string;
+  isPartOfTotalCapacity: boolean;
+  isPartOfRemainingCapacity: boolean;
   allocationPct: number;
 }
 
@@ -54,224 +58,315 @@ interface CategoryRow {
     NzDividerModule,
     NzProgressModule,
     NzAlertModule,
+    NzSwitchModule,
+    NzTabsModule,
     PageHeaderComponent,
   ],
   template: `
-    <app-page-header title="Teams" subtitle="Manage team hierarchy"></app-page-header>
+    <app-page-header title="Teams" subtitle="Manage team hierarchy and team types"></app-page-header>
 
-    <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-      <span>{{ flatTeams.length }} team(s) total</span>
-      <button nz-button nzType="primary" (click)="openModal()">
-        <span nz-icon nzType="plus"></span> Add Team
-      </button>
-    </div>
+    <nz-tabs>
 
-    <nz-spin [nzSpinning]="loading">
-      <nz-table
-        #table
-        [nzData]="flatTeams"
-        [nzBordered]="true"
-        [nzSize]="'middle'"
-        [nzPageSize]="20"
-      >
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Parent Team</th>
-            <th>Created At</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (team of table.data; track team.id) {
-            <tr [style.background]="team.parentId ? '#fafafa' : '#fff'">
-              <td>
-                @if (team.parentId) {
-                  <span style="display:inline-flex;align-items:center;padding-left:20px;">
-                    <span style="color:#aaa;margin-right:6px;font-size:14px;">└</span>
-                    <span nz-icon nzType="apartment" style="margin-right:6px;color:#722ed1"></span>
-                    {{ team.name }}
-                  </span>
-                } @else {
-                  <span style="display:inline-flex;align-items:center;">
-                    <span nz-icon nzType="cluster" style="margin-right:6px;color:#1890ff"></span>
-                    <strong>{{ team.name }}</strong>
-                  </span>
-                }
-              </td>
-              <td>
-                @if (team.parentId) {
-                  <nz-tag nzColor="purple">Sub-team</nz-tag>
-                } @else {
-                  <nz-tag nzColor="blue">Root team</nz-tag>
-                }
-              </td>
-              <td>
-                @if (team.parentId) {
-                  <nz-tag nzColor="default">
-                    <span nz-icon nzType="cluster" style="margin-right:4px"></span>
-                    {{ getTeamName(team.parentId) }}
-                  </nz-tag>
-                } @else {
-                  <span style="color:#bbb">—</span>
-                }
-              </td>
-              <td>{{ team.createdAt | date:'mediumDate' }}</td>
-              <td>
-                <button nz-button nzType="link" nz-tooltip nzTooltipTitle="Edit" (click)="openModal(team)">
-                  <span nz-icon nzType="edit"></span>
-                </button>
-                <button nz-button nzType="link" nz-tooltip nzTooltipTitle="Category allocations" (click)="openCategories(team)">
-                  <span nz-icon nzType="pie-chart"></span>
-                </button>
-                <button
-                  nz-button nzType="link" nzDanger
-                  nz-tooltip nzTooltipTitle="Delete"
-                  nz-popconfirm
-                  nzPopconfirmTitle="Delete this team?"
-                  (nzOnConfirm)="deleteTeam(team.id)"
-                >
-                  <span nz-icon nzType="delete"></span>
-                </button>
-              </td>
+      <!-- ══════════════════════ TAB 1: TEAMS ══════════════════════ -->
+      <nz-tab nzTitle="Teams">
+        <div style="margin:16px 0; display:flex; justify-content:space-between; align-items:center;">
+          <span>{{ flatTeams.length }} team(s) total</span>
+          <button nz-button nzType="primary" (click)="openTeamModal()">
+            <span nz-icon nzType="plus"></span> Add Team
+          </button>
+        </div>
+
+        <nz-spin [nzSpinning]="loading">
+          <nz-table #table [nzData]="flatTeams" [nzBordered]="true" [nzSize]="'middle'" [nzPageSize]="20">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Kind</th>
+                <th>Team Type</th>
+                <th>Parent Team</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (team of table.data; track team.id) {
+                <tr [style.background]="team.parentId ? '#fafafa' : '#fff'">
+                  <td>
+                    @if (team.parentId) {
+                      <span style="display:inline-flex;align-items:center;padding-left:20px;">
+                        <span style="color:#aaa;margin-right:6px;">└</span>
+                        <span nz-icon nzType="apartment" style="margin-right:6px;color:#722ed1"></span>
+                        {{ team.name }}
+                      </span>
+                    } @else {
+                      <span style="display:inline-flex;align-items:center;">
+                        <span nz-icon nzType="cluster" style="margin-right:6px;color:#1890ff"></span>
+                        <strong>{{ team.name }}</strong>
+                      </span>
+                    }
+                  </td>
+                  <td>
+                    <nz-tag [nzColor]="team.parentId ? 'purple' : 'blue'">
+                      {{ team.parentId ? 'Sub-team' : 'Root team' }}
+                    </nz-tag>
+                  </td>
+                  <td>
+                    @if (getTeamTypeName(team.teamTypeId)) {
+                      <nz-tag nzColor="cyan">{{ getTeamTypeName(team.teamTypeId) }}</nz-tag>
+                    } @else {
+                      <span style="color:#bbb">—</span>
+                    }
+                  </td>
+                  <td>
+                    @if (team.parentId) {
+                      <nz-tag nzColor="default">{{ getTeamName(team.parentId) }}</nz-tag>
+                    } @else {
+                      <span style="color:#bbb">—</span>
+                    }
+                  </td>
+                  <td>{{ team.createdAt | date:'mediumDate' }}</td>
+                  <td>
+                    <button nz-button nzType="link" nz-tooltip nzTooltipTitle="Edit" (click)="openTeamModal(team)">
+                      <span nz-icon nzType="edit"></span>
+                    </button>
+                    <button nz-button nzType="link" nz-tooltip nzTooltipTitle="Category allocations" (click)="openCategories(team)">
+                      <span nz-icon nzType="pie-chart"></span>
+                    </button>
+                    <button nz-button nzType="link" nzDanger nz-tooltip nzTooltipTitle="Delete"
+                      nz-popconfirm nzPopconfirmTitle="Delete this team?" (nzOnConfirm)="deleteTeam(team.id)">
+                      <span nz-icon nzType="delete"></span>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </nz-table>
+        </nz-spin>
+      </nz-tab>
+
+      <!-- ══════════════════════ TAB 2: TEAM TYPES ══════════════════════ -->
+      <nz-tab nzTitle="Team Types">
+        <div style="margin:16px 0; display:flex; justify-content:space-between; align-items:center;">
+          <span>{{ teamTypes.length }} type(s) defined</span>
+          <button nz-button nzType="primary" (click)="openTeamTypeModal()">
+            <span nz-icon nzType="plus"></span> Add Team Type
+          </button>
+        </div>
+
+        <nz-table [nzData]="teamTypes" [nzBordered]="true" [nzSize]="'middle'" [nzShowPagination]="false">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Total-capacity categories</th>
+              <th>Remaining-capacity categories</th>
+              <th>Actions</th>
             </tr>
-          }
-        </tbody>
-      </nz-table>
-    </nz-spin>
+          </thead>
+          <tbody>
+            @for (tt of teamTypes; track tt.id) {
+              <tr>
+                <td><strong>{{ tt.name }}</strong></td>
+                <td>
+                  @for (c of totalCats(tt); track c.name) {
+                    <nz-tag nzColor="red">{{ c.name }}</nz-tag>
+                  }
+                </td>
+                <td>
+                  @for (c of remainingCats(tt); track c.name) {
+                    <nz-tag nzColor="blue">{{ c.name }}</nz-tag>
+                  }
+                </td>
+                <td>
+                  <button nz-button nzType="link" (click)="openTeamTypeModal(tt)">
+                    <span nz-icon nzType="edit"></span>
+                  </button>
+                  <button nz-button nzType="link" nzDanger
+                    nz-popconfirm nzPopconfirmTitle="Delete this team type?"
+                    (nzOnConfirm)="deleteTeamType(tt.id)">
+                    <span nz-icon nzType="delete"></span>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </nz-tab>
 
+    </nz-tabs>
+
+    <!-- ══════════════════ TEAM MODAL ══════════════════ -->
     <nz-modal
-      [(nzVisible)]="modalVisible"
+      [(nzVisible)]="teamModalVisible"
       [nzTitle]="editingTeam ? 'Edit Team' : 'Add Team'"
-      (nzOnCancel)="closeModal()"
-      (nzOnOk)="submitForm()"
+      (nzOnCancel)="closeTeamModal()"
+      (nzOnOk)="submitTeamForm()"
       [nzOkLoading]="saving"
     >
       <ng-container *nzModalContent>
-        <form nz-form [formGroup]="form" nzLayout="vertical">
+        <form nz-form [formGroup]="teamForm" nzLayout="vertical">
           <nz-form-item>
             <nz-form-label nzRequired>Team Name</nz-form-label>
-            <nz-form-control nzErrorTip="Team name is required">
+            <nz-form-control nzErrorTip="Required">
               <input nz-input formControlName="name" placeholder="Enter team name" />
             </nz-form-control>
           </nz-form-item>
           <nz-form-item>
             <nz-form-label>Parent Team <span style="color:#999;font-size:12px">(leave empty to create a root team)</span></nz-form-label>
             <nz-form-control>
-              <nz-select
-                formControlName="parentId"
-                nzAllowClear
-                nzPlaceHolder="None — create as root team"
-                style="width:100%"
-                nzShowSearch
-              >
+              <nz-select formControlName="parentId" nzAllowClear nzPlaceHolder="None — root team" style="width:100%" nzShowSearch>
                 @for (t of selectableParents; track t.id) {
                   <nz-option [nzValue]="t.id" [nzLabel]="t.name"></nz-option>
                 }
               </nz-select>
             </nz-form-control>
           </nz-form-item>
+          @if (!teamForm.value.parentId) {
+            <nz-form-item>
+              <nz-form-label>Team Type <span style="color:#999;font-size:12px">(inherited by sub-teams)</span></nz-form-label>
+              <nz-form-control>
+                <nz-select formControlName="teamTypeId" nzAllowClear nzPlaceHolder="No type" style="width:100%">
+                  @for (tt of teamTypes; track tt.id) {
+                    <nz-option [nzValue]="tt.id" [nzLabel]="tt.name"></nz-option>
+                  }
+                </nz-select>
+              </nz-form-control>
+            </nz-form-item>
+          }
         </form>
       </ng-container>
     </nz-modal>
 
-    <!-- Category allocations drawer -->
+    <!-- ══════════════════ TEAM TYPE MODAL ══════════════════ -->
+    <nz-modal
+      [(nzVisible)]="teamTypeModalVisible"
+      [nzTitle]="editingTeamType ? 'Edit Team Type' : 'Add Team Type'"
+      (nzOnCancel)="closeTeamTypeModal()"
+      (nzOnOk)="submitTeamTypeForm()"
+      [nzOkLoading]="savingTeamType"
+      [nzWidth]="640"
+    >
+      <ng-container *nzModalContent>
+        <form nz-form [formGroup]="teamTypeForm" nzLayout="vertical">
+          <nz-form-item>
+            <nz-form-label nzRequired>Type Name</nz-form-label>
+            <nz-form-control nzErrorTip="Required">
+              <input nz-input formControlName="name" placeholder="e.g. Development, Operations" />
+            </nz-form-control>
+          </nz-form-item>
+
+          <nz-divider nzText="Category Definitions" nzOrientation="left"></nz-divider>
+
+          <nz-alert nzType="info" nzShowIcon style="margin-bottom:12px;font-size:12px;"
+            nzMessage="Each category is either part of total capacity (overhead, e.g. Incident) or remaining capacity (planned work, e.g. Project). Remaining categories must sum to 100% when setting allocations.">
+          </nz-alert>
+
+          <div formArrayName="categories">
+            @for (cat of categoryForms.controls; track $index) {
+              <div [formGroupName]="$index" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;padding:8px;border:1px solid #f0f0f0;border-radius:4px;">
+                <nz-form-control style="flex:1">
+                  <input nz-input formControlName="name" placeholder="Category name" />
+                </nz-form-control>
+                <nz-select formControlName="capacityType" style="width:200px">
+                  <nz-option nzValue="total" nzLabel="Total capacity (overhead)"></nz-option>
+                  <nz-option nzValue="remaining" nzLabel="Remaining capacity"></nz-option>
+                </nz-select>
+                <button nz-button nzType="link" nzDanger nzSize="small" (click)="removeCategory($index)">
+                  <span nz-icon nzType="minus-circle"></span>
+                </button>
+              </div>
+            }
+          </div>
+
+          <button nz-button nzType="dashed" style="width:100%;margin-top:4px;" (click)="addCategory()">
+            <span nz-icon nzType="plus"></span> Add Category
+          </button>
+        </form>
+      </ng-container>
+    </nz-modal>
+
+    <!-- ══════════════════ CATEGORY ALLOCATIONS DRAWER ══════════════════ -->
     <nz-drawer
       [nzVisible]="drawerVisible"
-      nzWidth="460"
+      nzWidth="480"
       [nzTitle]="drawerTitle"
       (nzOnClose)="closeCategories()"
     >
       <ng-container *nzDrawerContent>
         <nz-spin [nzSpinning]="loadingCategories">
 
-          <!-- ── Section 1: Incident ─────────────────────────────────────── -->
-          <nz-divider nzText="Incident capacity (% of total)" nzOrientation="left"></nz-divider>
-
-          <nz-alert
-            nzType="info"
-            nzMessage="Incident capacity is deducted first from the team's total capacity. The remaining capacity is then distributed among planned work categories."
-            nzShowIcon
-            style="margin-bottom:16px;font-size:12px"
-          ></nz-alert>
-
-          <div style="background:#fff1f0;border:1px solid #ffccc7;border-radius:8px;padding:16px;margin-bottom:24px">
-            <div style="display:flex;align-items:center;margin-bottom:10px;gap:8px">
-              <span nz-icon nzType="alert" style="font-size:18px;color:#ff4d4f"></span>
-              <span style="font-weight:600;font-size:14px">Incident</span>
-              <nz-tag nzColor="red" style="margin-left:auto">{{ incidentRow.allocationPct }}% of total</nz-tag>
+          @if (totalCategoryRows.length > 0) {
+            <nz-divider nzText="Total-capacity categories (% of total)" nzOrientation="left"></nz-divider>
+            <nz-alert nzType="info" nzShowIcon style="margin-bottom:12px;font-size:12px;"
+              nzMessage="These are deducted first from total capacity. Their sum must be less than 100%.">
+            </nz-alert>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+              @for (row of totalCategoryRows; track row.name) {
+                <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff1f0;border:1px solid #ffccc7;border-radius:6px;">
+                  <span style="flex:1;font-weight:600;">{{ row.name }}</span>
+                  <nz-tag nzColor="red">{{ row.allocationPct }}%</nz-tag>
+                  <nz-input-number
+                    [ngModel]="row.allocationPct"
+                    (ngModelChange)="row.allocationPct = $event"
+                    [nzMin]="0" [nzMax]="100" [nzStep]="5"
+                    [nzFormatter]="pctFormatter" [nzParser]="pctParser"
+                    style="width:110px">
+                  </nz-input-number>
+                </div>
+              }
             </div>
-            <nz-input-number
-              [(ngModel)]="incidentRow.allocationPct"
-              [nzMin]="0"
-              [nzMax]="100"
-              [nzStep]="5"
-              [nzFormatter]="pctFormatter"
-              [nzParser]="pctParser"
-              style="width:100%"
-            ></nz-input-number>
-          </div>
+          }
 
-          <!-- ── Section 2: Planned work ─────────────────────────────────── -->
-          <nz-divider nzText="Planned work (% of remaining capacity)" nzOrientation="left"></nz-divider>
-
-          <div style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          @if (remainingCategoryRows.length > 0) {
+            <nz-divider nzText="Remaining-capacity categories (% of remaining capacity)" nzOrientation="left"></nz-divider>
+            <nz-alert nzType="info" nzShowIcon style="margin-bottom:12px;font-size:12px;"
+              nzMessage="These percentages are of the remaining capacity (100% − total overhead). They must always sum to 100%.">
+            </nz-alert>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
               <span style="font-size:12px;color:#666">Must sum to 100%</span>
-              <span style="font-weight:600" [style.color]="plannedTotal === 100 ? '#52c41a' : '#ff4d4f'">
-                {{ plannedTotal }}%
+              <span style="font-weight:600;" [style.color]="remainingTotal === 100 ? '#52c41a' : '#ff4d4f'">
+                {{ remainingTotal }}%
               </span>
             </div>
             <nz-progress
-              [nzPercent]="plannedTotal > 100 ? 100 : plannedTotal"
-              [nzStatus]="plannedTotal === 100 ? 'success' : plannedTotal > 100 ? 'exception' : 'active'"
-              [nzShowInfo]="false"
-            ></nz-progress>
-          </div>
+              [nzPercent]="remainingTotal > 100 ? 100 : remainingTotal"
+              [nzStatus]="remainingTotal === 100 ? 'success' : remainingTotal > 100 ? 'exception' : 'active'"
+              [nzShowInfo]="false" style="margin-bottom:12px;">
+            </nz-progress>
 
-          @if (plannedTotal !== 100 && plannedTotal > 0) {
-            <nz-alert
-              nzType="warning"
-              [nzMessage]="plannedTotal > 100
-                ? 'Exceeds 100% by ' + (plannedTotal - 100) + '%. Reduce one category.'
-                : (100 - plannedTotal) + '% still unallocated across planned categories.'"
-              nzShowIcon
-              style="margin-bottom:12px"
-            ></nz-alert>
+            @if (totalCatSum === 100) {
+              <nz-alert nzType="warning" nzShowIcon style="margin-bottom:12px;"
+                nzMessage="Total overhead is 100% — no remaining capacity. All remaining categories must be 0%.">
+              </nz-alert>
+            } @else if (remainingTotal !== 100 && remainingTotal > 0) {
+              <nz-alert nzType="warning" nzShowIcon style="margin-bottom:12px;"
+                [nzMessage]="remainingTotal > 100
+                  ? 'Exceeds 100% by ' + (remainingTotal - 100) + '%'
+                  : (100 - remainingTotal) + '% still unallocated'">
+              </nz-alert>
+            }
+
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+              @for (row of remainingCategoryRows; track row.name) {
+                <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#e6f7ff;border:1px solid #91d5ff;border-radius:6px;">
+                  <span style="flex:1;font-weight:600;">{{ row.name }}</span>
+                  <nz-tag nzColor="blue">{{ row.allocationPct }}%</nz-tag>
+                  <nz-input-number
+                    [ngModel]="row.allocationPct"
+                    (ngModelChange)="row.allocationPct = $event"
+                    [nzMin]="0" [nzMax]="100" [nzStep]="5"
+                    [nzFormatter]="pctFormatter" [nzParser]="pctParser"
+                    style="width:110px">
+                  </nz-input-number>
+                </div>
+              }
+            </div>
           }
 
-          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
-            @for (row of plannedRows; track row.categoryName) {
-              <div style="background:#fafafa;border:1px solid #f0f0f0;border-radius:8px;padding:14px">
-                <div style="display:flex;align-items:center;margin-bottom:10px;gap:8px">
-                  <span nz-icon [nzType]="row.icon" [style.color]="row.color" style="font-size:17px"></span>
-                  <span style="font-weight:600;font-size:13px">{{ row.label }}</span>
-                  <nz-tag [nzColor]="row.color" style="margin-left:auto">{{ row.allocationPct }}%</nz-tag>
-                </div>
-                <nz-input-number
-                  [(ngModel)]="row.allocationPct"
-                  [nzMin]="0"
-                  [nzMax]="100"
-                  [nzStep]="5"
-                  [nzFormatter]="pctFormatter"
-                  [nzParser]="pctParser"
-                  style="width:100%"
-                ></nz-input-number>
-              </div>
-            }
-          </div>
-
           <nz-divider></nz-divider>
-
-          <div style="display:flex;gap:8px;justify-content:flex-end">
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button nz-button (click)="closeCategories()">Cancel</button>
-            <button
-              nz-button nzType="primary"
-              [disabled]="!canSave"
-              [nzLoading]="savingCategories"
-              (click)="saveCategories()"
-            >Save allocations</button>
+            <button nz-button nzType="primary" [disabled]="!canSave" [nzLoading]="savingCategories"
+              (click)="saveCategories()">Save allocations</button>
           </div>
 
         </nz-spin>
@@ -280,131 +375,198 @@ interface CategoryRow {
   `,
 })
 export class TeamsPageComponent implements OnInit {
-  private teamService = inject(TeamService);
-  private message = inject(NzMessageService);
-  private fb = inject(FormBuilder);
-
-  private static readonly INCIDENT: Pick<CategoryRow, 'categoryName' | 'label' | 'icon' | 'color'> =
-    { categoryName: 'Incident', label: 'Incident', icon: 'alert', color: '#ff4d4f' };
-
-  private static readonly PLANNED: Pick<CategoryRow, 'categoryName' | 'label' | 'icon' | 'color'>[] = [
-    { categoryName: 'Project',                label: 'Project',                icon: 'project', color: '#1890ff' },
-    { categoryName: 'Continuous Improvement', label: 'Continuous Improvement', icon: 'rise',    color: '#52c41a' },
-    { categoryName: 'IT for IT',              label: 'IT for IT',              icon: 'tool',    color: '#722ed1' },
-  ];
+  private teamService     = inject(TeamService);
+  private teamTypeService = inject(TeamTypeService);
+  private message         = inject(NzMessageService);
+  private fb              = inject(FormBuilder);
 
   loading = false;
-  saving = false;
-  modalVisible = false;
-  /** All teams flattened in hierarchy order (roots first, then their children). */
+  saving  = false;
+
+  // Teams
   flatTeams: TeamDTO[] = [];
   editingTeam: TeamDTO | null = null;
+  teamModalVisible = false;
+  teamForm!: FormGroup;
+
+  // Team types
+  teamTypes: TeamTypeDTO[] = [];
+  editingTeamType: TeamTypeDTO | null = null;
+  teamTypeModalVisible = false;
+  savingTeamType = false;
+  teamTypeForm!: FormGroup;
 
   // Categories drawer
-  drawerVisible = false;
-  drawerTitle = '';
-  loadingCategories = false;
-  savingCategories = false;
+  drawerVisible      = false;
+  drawerTitle        = '';
+  loadingCategories  = false;
+  savingCategories   = false;
   selectedTeam: TeamDTO | null = null;
-  incidentRow: CategoryRow = { ...TeamsPageComponent.INCIDENT, allocationPct: 0 };
-  plannedRows: CategoryRow[] = [];
+  totalCategoryRows: CategoryRow[]     = [];
+  remainingCategoryRows: CategoryRow[] = [];
 
-  /** Planned categories (Project + CI + IT4IT) must sum to 100. */
-  get plannedTotal(): number {
-    return this.plannedRows.reduce((sum, r) => sum + (r.allocationPct ?? 0), 0);
+  get remainingTotal(): number {
+    return this.remainingCategoryRows.reduce((s, r) => s + (r.allocationPct ?? 0), 0);
   }
 
-  /** True when both constraints are satisfied and the form can be saved. */
+  get totalCatSum(): number {
+    return this.totalCategoryRows.reduce((s, r) => s + (r.allocationPct ?? 0), 0);
+  }
+
   get canSave(): boolean {
-    return this.incidentRow.allocationPct >= 0
-        && this.incidentRow.allocationPct <= 100
-        && this.plannedTotal === 100;
+    const hasTotalCats     = this.totalCategoryRows.length > 0;
+    const hasRemainingCats = this.remainingCategoryRows.length > 0;
+    if (this.totalCatSum > 100) return false;
+    if (hasTotalCats && hasRemainingCats) {
+      const noRemainingCapacity = this.totalCatSum === 100;
+      return noRemainingCapacity ? this.remainingTotal === 0 : this.remainingTotal === 100;
+    }
+    if (hasTotalCats)     return true; // sum already checked <= 100 above
+    if (hasRemainingCats) return this.remainingTotal === 100;
+    return true;
   }
 
   readonly pctFormatter = (v: number) => `${v}%`;
-  readonly pctParser   = (v: string)  => Number(v.replace('%', ''));
+  readonly pctParser    = (v: string) => Number(v.replace('%', ''));
 
-  form!: FormGroup;
+  get categoryForms(): FormArray {
+    return this.teamTypeForm.get('categories') as FormArray;
+  }
 
   get selectableParents(): TeamDTO[] {
     return this.flatTeams.filter(t => !t.parentId && (!this.editingTeam || t.id !== this.editingTeam.id));
   }
 
   ngOnInit(): void {
-    this.form = this.fb.group({ name: ['', Validators.required], parentId: [null] });
-    this.loadTeams();
-  }
-
-  loadTeams(): void {
-    this.loading = true;
-    // Request tree=true so children are nested; then flatten preserving hierarchy order.
-    this.teamService.getTeams(true).subscribe({
-      next: roots => {
-        this.flatTeams = this.flattenTree(roots);
-        this.loading = false;
-      },
-      error: () => {
-        this.message.error('Failed to load teams');
-        this.loading = false;
+    this.teamForm = this.fb.group({ name: ['', Validators.required], parentId: [null], teamTypeId: [null] });
+    this.teamTypeForm = this.fb.group({ name: ['', Validators.required], categories: this.fb.array([]) });
+    forkJoin({ teams: this.teamService.getTeams(true), types: this.teamTypeService.getAll() }).subscribe({
+      next: ({ teams, types }) => {
+        this.flatTeams = this.flattenTree(teams);
+        this.teamTypes = types;
       },
     });
   }
 
-  /** Depth-first flatten: each root followed immediately by its descendants. */
+  // ── Teams ────────────────────────────────────────────────────────────────
+
+  loadData(): void {
+    this.loading = true;
+    forkJoin({ teams: this.teamService.getTeams(true), types: this.teamTypeService.getAll() }).subscribe({
+      next: ({ teams, types }) => {
+        this.flatTeams = this.flattenTree(teams);
+        this.teamTypes = types;
+        this.loading = false;
+      },
+      error: () => { this.message.error('Failed to load'); this.loading = false; },
+    });
+  }
+
   private flattenTree(teams: TeamDTO[]): TeamDTO[] {
     const result: TeamDTO[] = [];
     const visit = (list: TeamDTO[]) => {
-      for (const team of list) {
-        result.push(team);
-        if (team.children?.length) visit(team.children);
-      }
+      for (const t of list) { result.push(t); if (t.children?.length) visit(t.children); }
     };
     visit(teams);
     return result;
   }
 
-  getTeamName(id: string): string {
-    return this.flatTeams.find(t => t.id === id)?.name ?? id;
+  getTeamName(id?: string): string {
+    return this.flatTeams.find(t => t.id === id)?.name ?? id ?? '';
   }
 
-  openModal(team?: TeamDTO): void {
+  getTeamTypeName(id?: string): string {
+    return this.teamTypes.find(tt => tt.id === id)?.name ?? '';
+  }
+
+  totalCats(tt: TeamTypeDTO) { return tt.categories.filter(c => c.isPartOfTotalCapacity); }
+  remainingCats(tt: TeamTypeDTO) { return tt.categories.filter(c => c.isPartOfRemainingCapacity); }
+
+  openTeamModal(team?: TeamDTO): void {
     this.editingTeam = team ?? null;
-    this.form.patchValue({ name: team?.name ?? '', parentId: team?.parentId ?? null });
-    this.modalVisible = true;
+    this.teamForm.reset({ name: team?.name ?? '', parentId: team?.parentId ?? null, teamTypeId: team?.teamTypeId ?? null });
+    this.teamModalVisible = true;
   }
 
-  closeModal(): void {
-    this.modalVisible = false;
-    this.editingTeam = null;
-    this.form.reset();
-  }
+  closeTeamModal(): void { this.teamModalVisible = false; this.editingTeam = null; this.teamForm.reset(); }
 
-  submitForm(): void {
-    if (this.form.invalid) {
-      Object.values(this.form.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity(); });
+  submitTeamForm(): void {
+    if (this.teamForm.invalid) {
+      Object.values(this.teamForm.controls).forEach(c => { c.markAsDirty(); c.updateValueAndValidity(); });
       return;
     }
-    const { name, parentId } = this.form.value;
-    const body = { name, ...(parentId ? { parentId } : {}) };
+    const { name, parentId, teamTypeId } = this.teamForm.value;
+    const body: Record<string, unknown> = { name };
+    if (parentId)    body['parentId']    = parentId;
+    if (teamTypeId)  body['teamTypeId']  = teamTypeId;
     this.saving = true;
-
     const req = this.editingTeam
-      ? this.teamService.updateTeam(this.editingTeam.id, body)
-      : this.teamService.createTeam(body);
-
+      ? this.teamService.updateTeam(this.editingTeam.id, body as any)
+      : this.teamService.createTeam(body as any);
     req.subscribe({
-      next: () => {
-        this.message.success(this.editingTeam ? 'Team updated' : 'Team created');
-        this.saving = false;
-        this.closeModal();
-        this.loadTeams();
-      },
-      error: () => {
-        this.message.error('Operation failed');
-        this.saving = false;
-      },
+      next: () => { this.message.success(this.editingTeam ? 'Team updated' : 'Team created'); this.saving = false; this.closeTeamModal(); this.loadData(); },
+      error: () => { this.message.error('Operation failed'); this.saving = false; },
     });
   }
+
+  deleteTeam(id: string): void {
+    this.teamService.deleteTeam(id).subscribe({
+      next: () => { this.message.success('Team deleted'); this.loadData(); },
+      error: () => this.message.error('Failed to delete team'),
+    });
+  }
+
+  // ── Team Types ──────────────────────────────────────────────────────────
+
+  openTeamTypeModal(tt?: TeamTypeDTO): void {
+    this.editingTeamType = tt ?? null;
+    this.teamTypeForm.reset({ name: tt?.name ?? '' });
+    while (this.categoryForms.length) this.categoryForms.removeAt(0);
+    (tt?.categories ?? []).forEach(c => this.categoryForms.push(this.fb.group({
+      name: [c.name, Validators.required],
+      capacityType: [c.isPartOfTotalCapacity ? 'total' : 'remaining', Validators.required],
+    })));
+    this.teamTypeModalVisible = true;
+  }
+
+  closeTeamTypeModal(): void { this.teamTypeModalVisible = false; this.editingTeamType = null; }
+
+  addCategory(): void {
+    this.categoryForms.push(this.fb.group({ name: ['', Validators.required], capacityType: ['remaining', Validators.required] }));
+  }
+
+  removeCategory(i: number): void { this.categoryForms.removeAt(i); }
+
+  submitTeamTypeForm(): void {
+    if (this.teamTypeForm.invalid) {
+      this.teamTypeForm.markAllAsTouched();
+      return;
+    }
+    const { name } = this.teamTypeForm.value;
+    const categories = (this.categoryForms.value as { name: string; capacityType: string }[]).map(c => ({
+      name: c.name,
+      isPartOfTotalCapacity: c.capacityType === 'total',
+      isPartOfRemainingCapacity: c.capacityType === 'remaining',
+    }));
+    const body = { name, categories };
+    this.savingTeamType = true;
+    const req = this.editingTeamType
+      ? this.teamTypeService.update(this.editingTeamType.id, body)
+      : this.teamTypeService.create(body);
+    req.subscribe({
+      next: () => { this.message.success(this.editingTeamType ? 'Team type updated' : 'Team type created'); this.savingTeamType = false; this.closeTeamTypeModal(); this.loadData(); },
+      error: () => { this.message.error('Operation failed'); this.savingTeamType = false; },
+    });
+  }
+
+  deleteTeamType(id: string): void {
+    this.teamTypeService.delete(id).subscribe({
+      next: () => { this.message.success('Team type deleted'); this.loadData(); },
+      error: () => this.message.error('Failed to delete team type'),
+    });
+  }
+
+  // ── Categories drawer ───────────────────────────────────────────────────
 
   openCategories(team: TeamDTO): void {
     this.selectedTeam = team;
@@ -412,58 +574,58 @@ export class TeamsPageComponent implements OnInit {
     this.drawerVisible = true;
     this.loadingCategories = true;
 
+    const teamType = this.teamTypes.find(tt => tt.id === team.teamTypeId);
+
     this.teamService.getCategories(team.id).subscribe({
       next: (saved: CategoryAllocationDTO[]) => {
-        const inc = TeamsPageComponent.INCIDENT;
-        this.incidentRow = {
-          ...inc,
-          allocationPct: saved.find(s => s.categoryName === inc.categoryName)?.allocationPct ?? 0,
-        };
-        this.plannedRows = TeamsPageComponent.PLANNED.map(cat => ({
-          ...cat,
-          allocationPct: saved.find(s => s.categoryName === cat.categoryName)?.allocationPct ?? 0,
-        }));
+        const pctOf = (name: string) => saved.find(s => s.categoryName === name)?.allocationPct ?? 0;
+        if (teamType) {
+          this.totalCategoryRows = teamType.categories
+            .filter(c => c.isPartOfTotalCapacity)
+            .map(c => ({ name: c.name, isPartOfTotalCapacity: true, isPartOfRemainingCapacity: false, allocationPct: pctOf(c.name) }));
+          this.remainingCategoryRows = teamType.categories
+            .filter(c => c.isPartOfRemainingCapacity)
+            .map(c => ({ name: c.name, isPartOfTotalCapacity: false, isPartOfRemainingCapacity: true, allocationPct: pctOf(c.name) }));
+        } else {
+          this.totalCategoryRows = [];
+          this.remainingCategoryRows = saved.map(s => ({ name: s.categoryName, isPartOfTotalCapacity: false, isPartOfRemainingCapacity: true, allocationPct: s.allocationPct }));
+        }
         this.loadingCategories = false;
       },
       error: () => {
-        this.incidentRow = { ...TeamsPageComponent.INCIDENT, allocationPct: 0 };
-        this.plannedRows = TeamsPageComponent.PLANNED.map(cat => ({ ...cat, allocationPct: 0 }));
+        this.initEmptyRows(teamType);
         this.loadingCategories = false;
       },
     });
   }
 
+  private initEmptyRows(teamType?: TeamTypeDTO): void {
+    if (teamType) {
+      this.totalCategoryRows     = teamType.categories.filter(c => c.isPartOfTotalCapacity).map(c => ({ name: c.name, isPartOfTotalCapacity: true, isPartOfRemainingCapacity: false, allocationPct: 0 }));
+      this.remainingCategoryRows = teamType.categories.filter(c => c.isPartOfRemainingCapacity).map(c => ({ name: c.name, isPartOfTotalCapacity: false, isPartOfRemainingCapacity: true, allocationPct: 0 }));
+    } else {
+      this.totalCategoryRows = [];
+      this.remainingCategoryRows = [];
+    }
+  }
+
   closeCategories(): void {
     this.drawerVisible = false;
     this.selectedTeam = null;
-    this.incidentRow = { ...TeamsPageComponent.INCIDENT, allocationPct: 0 };
-    this.plannedRows = [];
+    this.totalCategoryRows = [];
+    this.remainingCategoryRows = [];
   }
 
   saveCategories(): void {
     if (!this.selectedTeam || !this.canSave) return;
     this.savingCategories = true;
     const categories = [
-      { categoryName: this.incidentRow.categoryName, allocationPct: this.incidentRow.allocationPct },
-      ...this.plannedRows.map(r => ({ categoryName: r.categoryName, allocationPct: r.allocationPct })),
+      ...this.totalCategoryRows.map(r => ({ categoryName: r.name, allocationPct: r.allocationPct })),
+      ...this.remainingCategoryRows.map(r => ({ categoryName: r.name, allocationPct: r.allocationPct })),
     ];
     this.teamService.updateCategories(this.selectedTeam.id, { categories }).subscribe({
-      next: () => {
-        this.message.success('Category allocations saved');
-        this.savingCategories = false;
-        this.closeCategories();
-      },
-      error: () => {
-        this.message.error('Failed to save allocations');
-        this.savingCategories = false;
-      },
-    });
-  }
-
-  deleteTeam(id: string): void {
-    this.teamService.deleteTeam(id).subscribe({
-      next: () => { this.message.success('Team deleted'); this.loadTeams(); },
-      error: () => this.message.error('Failed to delete team'),
+      next: () => { this.message.success('Allocations saved'); this.savingCategories = false; this.closeCategories(); },
+      error: () => { this.message.error('Failed to save allocations'); this.savingCategories = false; },
     });
   }
 }

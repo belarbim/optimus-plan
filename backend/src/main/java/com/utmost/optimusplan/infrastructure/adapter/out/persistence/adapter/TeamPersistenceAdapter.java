@@ -4,6 +4,7 @@ import com.utmost.optimusplan.domain.model.Team;
 import com.utmost.optimusplan.domain.port.out.TeamRepositoryPort;
 import com.utmost.optimusplan.infrastructure.adapter.out.persistence.entity.TeamJpaEntity;
 import com.utmost.optimusplan.infrastructure.adapter.out.persistence.jpa.TeamJpaRepository;
+import com.utmost.optimusplan.infrastructure.adapter.out.persistence.jpa.TeamTypeJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TeamPersistenceAdapter implements TeamRepositoryPort {
 
-    private final TeamJpaRepository repo;
+    private final TeamJpaRepository     repo;
+    private final TeamTypeJpaRepository teamTypeRepo;
 
     @Override
     public Team save(Team team) {
@@ -80,6 +82,7 @@ public class TeamPersistenceAdapter implements TeamRepositoryPort {
                 .id(e.getId())
                 .name(e.getName())
                 .parentId(e.getParent() != null ? e.getParent().getId() : null)
+                .teamTypeId(e.getTeamType() != null ? e.getTeamType().getId() : null)
                 .children(new ArrayList<>())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
@@ -99,13 +102,10 @@ public class TeamPersistenceAdapter implements TeamRepositoryPort {
 
         entity.setId(team.getId());
         entity.setName(team.getName());
-
-        if (team.getParentId() != null) {
-            entity.setParent(repo.findById(team.getParentId()).orElse(null));
-        } else {
-            entity.setParent(null);
-        }
-
+        entity.setParent(team.getParentId() != null
+                ? repo.findById(team.getParentId()).orElse(null) : null);
+        entity.setTeamType(team.getTeamTypeId() != null
+                ? teamTypeRepo.findById(team.getTeamTypeId()).orElse(null) : null);
         return entity;
     }
 }
