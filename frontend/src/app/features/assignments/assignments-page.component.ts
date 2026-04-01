@@ -77,9 +77,14 @@ import { forkJoin } from 'rxjs';
           }
         </nz-select>
       </div>
-      <button nz-button nzType="primary" (click)="openCreateModal()">
-        <span nz-icon nzType="plus"></span> New Assignment
-      </button>
+      <div style="display:flex; gap:8px;">
+        <button nz-button (click)="openImportModal()">
+          <span nz-icon nzType="upload"></span> Import CSV
+        </button>
+        <button nz-button nzType="primary" (click)="openCreateModal()">
+          <span nz-icon nzType="plus"></span> New Assignment
+        </button>
+      </div>
     </div>
 
     <nz-spin [nzSpinning]="loading">
@@ -304,6 +309,66 @@ import { forkJoin } from 'rxjs';
         </form>
       </ng-container>
     </nz-modal>
+
+    <!-- Import CSV Modal -->
+    <nz-modal
+      [(nzVisible)]="importModalVisible"
+      nzTitle="Import Assignments from CSV"
+      (nzOnCancel)="importModalVisible = false"
+      [nzFooter]="null"
+    >
+      <ng-container *nzModalContent>
+        <p style="margin-bottom:8px;">
+          Upload a CSV file with the following columns (header row required):
+        </p>
+        <code style="display:block; background:#f5f5f5; padding:8px; border-radius:4px; font-size:12px; margin-bottom:16px;">
+          employeeEmail, teamName, allocationPct, roleType, roleWeight, startDate, endDate
+        </code>
+        <p style="font-size:12px; color:#888; margin-bottom:16px;">
+          startDate and endDate format: yyyy-MM-dd. endDate is optional.
+        </p>
+
+        <button nz-button style="margin-bottom:16px;" (click)="downloadTemplate()">
+          <span nz-icon nzType="download"></span> Download Template
+        </button>
+
+        <div style="border:2px dashed #d9d9d9; border-radius:4px; padding:24px; text-align:center; cursor:pointer;"
+             (click)="fileInput.click()" (dragover)="$event.preventDefault()" (drop)="onFileDrop($event)">
+          <span nz-icon nzType="inbox" style="font-size:32px; color:#40a9ff;"></span>
+          <p style="margin:8px 0 4px;">Click or drag CSV file here</p>
+          <p style="font-size:12px; color:#888;">{{ importFile ? importFile.name : 'No file selected' }}</p>
+        </div>
+        <input #fileInput type="file" accept=".csv" style="display:none" (change)="onFileSelect($event)">
+
+        @if (importResult) {
+          <div style="margin-top:16px;">
+            <p>
+              <span nz-icon nzType="check-circle" style="color:#52c41a;"></span>
+              {{ importResult.successCount }} imported successfully
+              @if (importResult.errorCount > 0) {
+                &nbsp;·&nbsp;
+                <span nz-icon nzType="close-circle" style="color:#ff4d4f;"></span>
+                {{ importResult.errorCount }} failed
+              }
+            </p>
+            @if (importResult.errors.length > 0) {
+              <ul style="font-size:12px; color:#ff4d4f; max-height:150px; overflow-y:auto; padding-left:16px;">
+                @for (e of importResult.errors; track e) {
+                  <li>{{ e }}</li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+          <button nz-button (click)="importModalVisible = false">Cancel</button>
+          <button nz-button nzType="primary" [disabled]="!importFile" [nzLoading]="importing" (click)="submitImport()">
+            Import
+          </button>
+        </div>
+      </ng-container>
+    </nz-modal>
   `,
 })
 export class AssignmentsPageComponent implements OnInit {
@@ -329,6 +394,10 @@ export class AssignmentsPageComponent implements OnInit {
   createModalVisible = false;
   editModalVisible = false;
   roleModalVisible = false;
+  importModalVisible = false;
+  importFile: File | null = null;
+  importing = false;
+  importResult: { successCount: number; errorCount: number; errors: string[] } | null = null;
 
   createForm!: FormGroup;
   editForm!: FormGroup;
@@ -501,5 +570,49 @@ export class AssignmentsPageComponent implements OnInit {
       next: () => { this.message.success('Role updated'); this.saving = false; this.roleModalVisible = false; this.loadAllAssignments(); },
       error: () => { this.message.error('Failed'); this.saving = false; },
     });
+  }
+
+  openImportModal(): void {
+    this.importFile = null;
+    this.importResult = null;
+    this.importModalVisible = true;
+  }
+
+  onFileSelect(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files?.length) {
+      this.importFile = input.files[0];
+      this.importResult = null;
+    }
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    const file = event.dataTransfer?.files[0];
+    if (file) { this.importFile = file; this.importResult = null; }
+  }
+
+  submitImport(): void {
+    if (!this.importFile) return;
+    this.importing = true;
+    this.assignmentService.importCsv(this.importFile).subscribe({
+      next: result => {
+        this.importResult = result;
+        this.importing = false;
+        if (result.successCount > 0) this.loadAllAssignments();
+      },
+      error: () => { this.message.error('Import failed'); this.importing = false; },
+    });
+  }
+
+  downloadTemplate(): void {
+    const csv = 'employeeEmail,teamName,allocationPct,roleType,roleWeight,startDate,endDate\njohn.doe@example.com,Team Alpha,100,Developer,0.8,2024-01-01,\n';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'assignments-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }

@@ -49,6 +49,12 @@ export class AssignmentService {
     return this.http.get<RoleHistoryDTO[]>(`${this.base}/${id}/role-history`);
   }
 
+  importCsv(file: File): Observable<{ successCount: number; errorCount: number; errors: string[] }> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<{ successCount: number; errorCount: number; errors: string[] }>(`${this.base}/import`, form);
+  }
+
   deleteAssignment(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }

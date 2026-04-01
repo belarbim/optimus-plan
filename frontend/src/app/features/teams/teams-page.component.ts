@@ -327,7 +327,7 @@ export class TeamsPageComponent implements OnInit {
   form!: FormGroup;
 
   get selectableParents(): TeamDTO[] {
-    return this.flatTeams.filter(t => !this.editingTeam || t.id !== this.editingTeam.id);
+    return this.flatTeams.filter(t => !t.parentId && (!this.editingTeam || t.id !== this.editingTeam.id));
   }
 
   ngOnInit(): void {

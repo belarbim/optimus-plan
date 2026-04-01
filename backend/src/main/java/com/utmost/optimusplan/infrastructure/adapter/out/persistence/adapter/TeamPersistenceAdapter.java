@@ -70,6 +70,11 @@ public class TeamPersistenceAdapter implements TeamRepositoryPort {
         return repo.existsById(id);
     }
 
+    @Override
+    public Optional<Team> findByNameIgnoreCase(String name) {
+        return repo.findByNameIgnoreCase(name).map(this::toDomain);
+    }
+
     private Team toDomain(TeamJpaEntity e) {
         return Team.builder()
                 .id(e.getId())

@@ -4,6 +4,7 @@ import com.utmost.optimusplan.infrastructure.adapter.out.persistence.entity.Team
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface TeamJpaRepository extends JpaRepository<TeamJpaEntity, UUID> {
@@ -17,4 +18,6 @@ public interface TeamJpaRepository extends JpaRepository<TeamJpaEntity, UUID> {
     boolean existsByNameAndParentIsNull(String name);
 
     boolean existsByParentId(UUID parentId);
+
+    Optional<TeamJpaEntity> findByNameIgnoreCase(String name);
 }

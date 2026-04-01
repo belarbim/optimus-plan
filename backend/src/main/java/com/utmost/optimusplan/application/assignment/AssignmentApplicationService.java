@@ -268,6 +268,33 @@ public class AssignmentApplicationService implements AssignmentUseCase {
     }
 
     @Override
+    public ImportResult importAssignments(List<ImportAssignmentRow> rows) {
+        int success = 0;
+        List<String> errors = new java.util.ArrayList<>();
+
+        for (ImportAssignmentRow row : rows) {
+            try {
+                var employee = employeeRepo.findByEmail(row.employeeEmail())
+                        .orElseThrow(() -> new DomainException(new DomainError.BusinessRule(
+                                "Employee not found with email: " + row.employeeEmail())));
+                var team = teamRepo.findByNameIgnoreCase(row.teamName())
+                        .orElseThrow(() -> new DomainException(new DomainError.BusinessRule(
+                                "Team not found with name: " + row.teamName())));
+
+                assign(new CreateAssignmentCommand(
+                        team.getId(), employee.getId(),
+                        row.allocationPct(), row.roleType(), row.roleWeight(),
+                        row.startDate(), row.endDate()));
+                success++;
+            } catch (Exception e) {
+                errors.add("Row " + row.rowNumber() + ": " + e.getMessage());
+            }
+        }
+
+        return new ImportResult(success, errors.size(), errors);
+    }
+
+    @Override
     public void deleteAssignment(UUID assignmentId) {
         getAssignment(assignmentId); // throws NotFound if missing
         roleHistoryRepo.deleteByAssignmentId(assignmentId);

@@ -52,7 +52,21 @@ public interface AssignmentUseCase {
 
     List<RoleHistory> getRoleHistory(UUID assignmentId);
 
+    record ImportAssignmentRow(
+            int rowNumber,
+            String employeeEmail,
+            String teamName,
+            BigDecimal allocationPct,
+            String roleType,
+            BigDecimal roleWeight,
+            LocalDate startDate,
+            LocalDate endDate) {}
+
+    record ImportResult(int successCount, int errorCount, java.util.List<String> errors) {}
+
     TeamAssignment updateAssignment(UpdateAssignmentCommand cmd);
+
+    ImportResult importAssignments(java.util.List<ImportAssignmentRow> rows);
 
     void deleteAssignment(UUID assignmentId);
 }

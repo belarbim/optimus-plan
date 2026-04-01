@@ -1,5 +1,7 @@
 package com.utmost.optimusplan.infrastructure.adapter.in.web;
 
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvException;
 import com.utmost.optimusplan.domain.model.RoleHistory;
 import com.utmost.optimusplan.domain.model.TeamAssignment;
 import com.utmost.optimusplan.domain.port.in.AssignmentUseCase;
@@ -11,9 +13,14 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -160,6 +167,33 @@ public class AssignmentController {
         return assignmentUseCase.getRoleHistory(id).stream()
                 .map(RoleHistoryResponse::from)
                 .toList();
+    }
+
+    record ImportResultResponse(int successCount, int errorCount, List<String> errors) {}
+
+    @PostMapping("/import")
+    public ImportResultResponse importCsv(@RequestParam("file") MultipartFile file) throws IOException, CsvException {
+        List<AssignmentUseCase.ImportAssignmentRow> rows = new ArrayList<>();
+        try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            List<String[]> all = reader.readAll();
+            // Skip header row (index 0)
+            for (int i = 1; i < all.size(); i++) {
+                String[] cols = all.get(i);
+                if (cols.length < 6) continue;
+                String employeeEmail = cols[0].trim();
+                String teamName      = cols[1].trim();
+                BigDecimal alloc     = new BigDecimal(cols[2].trim());
+                String roleType      = cols[3].trim();
+                BigDecimal weight    = new BigDecimal(cols[4].trim());
+                LocalDate startDate  = LocalDate.parse(cols[5].trim());
+                LocalDate endDate    = (cols.length > 6 && !cols[6].trim().isEmpty())
+                        ? LocalDate.parse(cols[6].trim()) : null;
+                rows.add(new AssignmentUseCase.ImportAssignmentRow(
+                        i, employeeEmail, teamName, alloc, roleType, weight, startDate, endDate));
+            }
+        }
+        AssignmentUseCase.ImportResult result = assignmentUseCase.importAssignments(rows);
+        return new ImportResultResponse(result.successCount(), result.errorCount(), result.errors());
     }
 
     @DeleteMapping("/{id}")

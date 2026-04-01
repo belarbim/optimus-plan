@@ -41,9 +41,13 @@ public class TeamApplicationService implements TeamUseCase {
         validateNameUniqueness(cmd.name(), cmd.parentId());
 
         if (cmd.parentId() != null) {
-            teamRepo.findById(cmd.parentId())
+            Team parent = teamRepo.findById(cmd.parentId())
                     .orElseThrow(() -> new DomainException(
                             new DomainError.NotFound("Team", cmd.parentId())));
+            if (parent.getParentId() != null) {
+                throw new DomainException(new DomainError.BusinessRule(
+                        "A sub-team cannot be used as a parent team"));
+            }
         }
 
         LocalDateTime now = LocalDateTime.now();

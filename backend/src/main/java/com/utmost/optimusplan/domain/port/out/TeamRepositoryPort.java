@@ -27,4 +27,6 @@ public interface TeamRepositoryPort {
     boolean hasChildren(UUID id);
 
     boolean existsById(UUID id);
+
+    Optional<Team> findByNameIgnoreCase(String name);
 }
