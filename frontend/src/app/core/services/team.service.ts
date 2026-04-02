@@ -36,4 +36,10 @@ export class TeamService {
   updateCategories(teamId: string, body: import('../models/snapshot.model').UpdateCategoriesRequest): Observable<import('../models/snapshot.model').CategoryAllocationDTO[]> {
     return this.http.put<import('../models/snapshot.model').CategoryAllocationDTO[]>(`${this.base}/${teamId}/categories`, body);
   }
+
+  importCsv(file: File): Observable<{ successCount: number; errorCount: number; errors: string[] }> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ successCount: number; errorCount: number; errors: string[] }>(`${this.base}/import`, fd);
+  }
 }

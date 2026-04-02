@@ -71,9 +71,14 @@ interface CategoryRow {
       <nz-tab nzTitle="Teams">
         <div style="margin:16px 0; display:flex; justify-content:space-between; align-items:center;">
           <span>{{ flatTeams.length }} team(s) total</span>
-          <button nz-button nzType="primary" (click)="openTeamModal()">
-            <span nz-icon nzType="plus"></span> Add Team
-          </button>
+          <div style="display:flex;gap:8px;">
+            <button nz-button nzType="default" (click)="openImportModal()">
+              <span nz-icon nzType="upload"></span> Import CSV
+            </button>
+            <button nz-button nzType="primary" (click)="openTeamModal()">
+              <span nz-icon nzType="plus"></span> Add Team
+            </button>
+          </div>
         </div>
 
         <nz-spin [nzSpinning]="loading">
@@ -284,6 +289,65 @@ interface CategoryRow {
       </ng-container>
     </nz-modal>
 
+    <!-- ══════════════════ IMPORT CSV MODAL ══════════════════ -->
+    <nz-modal
+      [(nzVisible)]="importModalVisible"
+      nzTitle="Import Teams from CSV"
+      (nzOnCancel)="importModalVisible = false"
+      [nzFooter]="null"
+    >
+      <ng-container *nzModalContent>
+        <p style="margin-bottom:8px;">Upload a CSV file with the following columns (header row required):</p>
+        <code style="display:block;background:#f5f5f5;padding:8px;border-radius:4px;font-size:12px;margin-bottom:8px;">
+          name, parentName, teamTypeName
+        </code>
+        <p style="font-size:12px;color:#888;margin-bottom:16px;">
+          <strong>parentName</strong>: optional — name of an existing root team.<br>
+          <strong>teamTypeName</strong>: optional — only applied to root teams.
+        </p>
+
+        <button nz-button style="margin-bottom:16px;" (click)="downloadTemplate()">
+          <span nz-icon nzType="download"></span> Download Template
+        </button>
+
+        <div style="border:2px dashed #d9d9d9;border-radius:4px;padding:24px;text-align:center;cursor:pointer;"
+             (click)="csvFileInput.click()" (dragover)="$event.preventDefault()" (drop)="onImportFileDrop($event)">
+          <span nz-icon nzType="inbox" style="font-size:32px;color:#40a9ff;"></span>
+          <p style="margin:8px 0 4px;">Click or drag CSV file here</p>
+          <p style="font-size:12px;color:#888;">{{ importFile ? importFile.name : 'No file selected' }}</p>
+        </div>
+        <input #csvFileInput type="file" accept=".csv" style="display:none" (change)="onImportFileSelect($event)">
+
+        @if (importResult) {
+          <div style="margin-top:16px;">
+            <p>
+              <span nz-icon nzType="check-circle" style="color:#52c41a;"></span>
+              {{ importResult.successCount }} imported successfully
+              @if (importResult.errorCount > 0) {
+                &nbsp;·&nbsp;
+                <span nz-icon nzType="close-circle" style="color:#ff4d4f;"></span>
+                {{ importResult.errorCount }} failed
+              }
+            </p>
+            @if (importResult.errors.length > 0) {
+              <ul style="font-size:12px;color:#ff4d4f;max-height:150px;overflow-y:auto;padding-left:16px;">
+                @for (e of importResult.errors; track e) {
+                  <li>{{ e }}</li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px;">
+          <button nz-button (click)="importModalVisible = false">Cancel</button>
+          <button nz-button nzType="primary" [disabled]="!importFile" [nzLoading]="importing" (click)="submitImport()">
+            Import
+          </button>
+        </div>
+      </ng-container>
+    </nz-modal>
+
     <!-- ══════════════════ CATEGORY ALLOCATIONS DRAWER ══════════════════ -->
     <nz-drawer
       [nzVisible]="drawerVisible"
@@ -383,6 +447,12 @@ export class TeamsPageComponent implements OnInit {
   loading = false;
   saving  = false;
 
+  // CSV import
+  importModalVisible = false;
+  importFile: File | null = null;
+  importing = false;
+  importResult: { successCount: number; errorCount: number; errors: string[] } | null = null;
+
   // Teams
   flatTeams: TeamDTO[] = [];
   editingTeam: TeamDTO | null = null;
@@ -446,6 +516,47 @@ export class TeamsPageComponent implements OnInit {
         this.teamTypes = types;
       },
     });
+  }
+
+  // ── CSV Import ───────────────────────────────────────────────────────────
+
+  openImportModal(): void {
+    this.importFile = null;
+    this.importResult = null;
+    this.importModalVisible = true;
+  }
+
+  onImportFileSelect(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) { this.importFile = file; this.importResult = null; }
+  }
+
+  onImportFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    const file = event.dataTransfer?.files[0];
+    if (file) { this.importFile = file; this.importResult = null; }
+  }
+
+  submitImport(): void {
+    if (!this.importFile) return;
+    this.importing = true;
+    this.teamService.importCsv(this.importFile).subscribe({
+      next: result => {
+        this.importResult = result;
+        this.importing = false;
+        if (result.successCount > 0) this.loadData();
+      },
+      error: () => { this.message.error('Import failed'); this.importing = false; },
+    });
+  }
+
+  downloadTemplate(): void {
+    const csv = 'name,parentName,teamTypeName\nEngineering,,Development\nFrontend,Engineering,\nBackend,Engineering,\n';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'teams-template.csv'; a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Teams ────────────────────────────────────────────────────────────────

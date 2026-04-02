@@ -64,6 +64,11 @@ public class TeamTypePersistenceAdapter implements TeamTypeRepositoryPort {
         return repo.existsById(id);
     }
 
+    @Override
+    public Optional<TeamType> findByNameIgnoreCase(String name) {
+        return repo.findByNameIgnoreCase(name).map(this::toDomain);
+    }
+
     private TeamType toDomain(TeamTypeJpaEntity e) {
         List<TeamTypeCategory> cats = e.getCategories().stream()
                 .map(c -> TeamTypeCategory.builder()

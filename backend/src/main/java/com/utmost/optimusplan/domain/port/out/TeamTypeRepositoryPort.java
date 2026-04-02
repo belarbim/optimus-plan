@@ -19,4 +19,6 @@ public interface TeamTypeRepositoryPort {
     boolean existsByName(String name);
 
     boolean existsById(UUID id);
+
+    Optional<TeamType> findByNameIgnoreCase(String name);
 }
