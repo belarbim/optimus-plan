@@ -166,8 +166,12 @@ import { GradeDTO, GradeHistoryDTO, CostHistoryDTO } from '../../core/models/gra
       <ng-container *nzModalContent>
         <p style="margin-bottom:8px;">Upload a CSV file with the following columns (header row required):</p>
         <code style="display:block; background:#f5f5f5; padding:8px; border-radius:4px; font-size:12px; margin-bottom:16px;">
-          firstName, lastName, email
+          firstName, lastName, email, type, typeEffectiveFrom
         </code>
+        <p style="font-size:12px; color:#888; margin-bottom:16px;">
+          <em>type</em>: INTERNAL or EXTERNAL (defaults to INTERNAL if omitted).
+          <em>typeEffectiveFrom</em>: ISO date (YYYY-MM-DD), defaults to today if omitted.
+        </p>
 
         <button nz-button style="margin-bottom:16px;" (click)="downloadTemplate()">
           <span nz-icon nzType="download"></span> Download Template
@@ -934,7 +938,7 @@ export class EmployeesPageComponent implements OnInit {
   }
 
   downloadTemplate(): void {
-    const csv = 'firstName,lastName,email\nJohn,Doe,john.doe@example.com\n';
+    const csv = 'firstName,lastName,email,type,typeEffectiveFrom\nJohn,Doe,john.doe@example.com,INTERNAL,2024-01-01\nJane,Smith,jane.smith@example.com,EXTERNAL,2024-03-15\n';
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

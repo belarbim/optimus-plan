@@ -13,7 +13,7 @@ public interface EmployeeUseCase {
 
     record ImportRowError(int row, String email, String reason) {}
 
-    record ImportResult(int imported, int skipped, List<ImportRowError> errors) {}
+    record ImportResult(int imported, int skipped, List<ImportRowError> errors, List<Employee> importedEmployees) {}
 
     Employee create(CreateEmployeeCommand cmd);
 

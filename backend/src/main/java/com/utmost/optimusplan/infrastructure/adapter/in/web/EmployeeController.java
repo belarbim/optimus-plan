@@ -6,6 +6,7 @@ import com.utmost.optimusplan.domain.exception.DomainError;
 import com.utmost.optimusplan.domain.exception.DomainException;
 import com.utmost.optimusplan.domain.model.Employee;
 import com.utmost.optimusplan.domain.port.in.AssignmentUseCase;
+import com.utmost.optimusplan.domain.port.in.EmployeeTypeUseCase;
 import com.utmost.optimusplan.domain.port.in.EmployeeUseCase;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +35,7 @@ public class EmployeeController {
 
     private final EmployeeUseCase employeeUseCase;
     private final AssignmentUseCase assignmentUseCase;
+    private final EmployeeTypeUseCase employeeTypeUseCase;
 
     record CreateEmployeeRequest(
             @NotBlank String firstName,
@@ -123,10 +126,26 @@ public class EmployeeController {
 
     record ImportResponse(int imported, int skipped, List<ImportErrorResponse> errors) {}
 
+    record CsvRow(EmployeeUseCase.CreateEmployeeCommand command, String type, LocalDate typeEffectiveFrom) {}
+
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ImportResponse importCsv(@RequestParam("file") MultipartFile file) throws IOException, CsvException {
-        List<EmployeeUseCase.CreateEmployeeCommand> commands = parseCsv(file);
+        List<CsvRow> rows = parseCsv(file);
+        List<EmployeeUseCase.CreateEmployeeCommand> commands = rows.stream().map(CsvRow::command).toList();
         EmployeeUseCase.ImportResult result = employeeUseCase.importBatch(commands);
+
+        // For each successfully imported employee, record initial type history
+        result.importedEmployees().forEach(employee -> {
+            rows.stream()
+                    .filter(r -> r.command().email().equalsIgnoreCase(employee.getEmail()))
+                    .findFirst()
+                    .ifPresent(r -> employeeTypeUseCase.addTypeHistory(
+                            new EmployeeTypeUseCase.AddTypeHistoryCommand(
+                                    employee.getId(),
+                                    r.type(),
+                                    r.typeEffectiveFrom())));
+        });
+
         return new ImportResponse(
                 result.imported(),
                 result.skipped(),
@@ -135,7 +154,7 @@ public class EmployeeController {
                         .toList());
     }
 
-    private List<EmployeeUseCase.CreateEmployeeCommand> parseCsv(MultipartFile file) throws IOException, CsvException {
+    private List<CsvRow> parseCsv(MultipartFile file) throws IOException, CsvException {
         try (InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
              CSVReader csv = new CSVReader(reader)) {
 
@@ -152,23 +171,40 @@ public class EmployeeController {
             int fiIdx = colIdx.getOrDefault("firstname", -1);
             int laIdx = colIdx.getOrDefault("lastname", -1);
             int maIdx = colIdx.getOrDefault("email", -1);
+            int tyIdx = colIdx.getOrDefault("type", -1);
+            int efIdx = colIdx.getOrDefault("typeeffectivefrom", -1);
 
             if (fiIdx < 0 || laIdx < 0 || maIdx < 0) {
                 throw new DomainException(new DomainError.Validation(
                         "CSV must contain columns: firstname, lastname, email"));
             }
 
-            List<EmployeeUseCase.CreateEmployeeCommand> commands = new ArrayList<>();
+            List<CsvRow> rows = new ArrayList<>();
             String[] line;
             while ((line = csv.readNext()) != null) {
                 if (line.length <= Math.max(fiIdx, Math.max(laIdx, maIdx))) continue;
-                commands.add(new EmployeeUseCase.CreateEmployeeCommand(
-                        line[fiIdx].trim(),
-                        line[laIdx].trim(),
-                        line[maIdx].trim(),
-                        null));
+
+                String type = (tyIdx >= 0 && tyIdx < line.length && !line[tyIdx].isBlank())
+                        ? line[tyIdx].trim().toUpperCase()
+                        : "INTERNAL";
+
+                LocalDate effectiveFrom = LocalDate.now();
+                if (efIdx >= 0 && efIdx < line.length && !line[efIdx].isBlank()) {
+                    try {
+                        effectiveFrom = LocalDate.parse(line[efIdx].trim());
+                    } catch (Exception ignored) {}
+                }
+
+                rows.add(new CsvRow(
+                        new EmployeeUseCase.CreateEmployeeCommand(
+                                line[fiIdx].trim(),
+                                line[laIdx].trim(),
+                                line[maIdx].trim(),
+                                type),
+                        type,
+                        effectiveFrom));
             }
-            return commands;
+            return rows;
         }
     }
 

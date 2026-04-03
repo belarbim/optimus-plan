@@ -117,12 +117,14 @@ public class EmployeeApplicationService implements EmployeeUseCase {
         int imported = 0;
         int skipped  = 0;
         List<EmployeeUseCase.ImportRowError> errors = new ArrayList<>();
+        List<Employee> importedEmployees = new ArrayList<>();
 
         for (int i = 0; i < commands.size(); i++) {
             CreateEmployeeCommand cmd = commands.get(i);
             int row = i + 2; // +2 because row 1 is the header
             try {
-                create(cmd);
+                Employee saved = create(cmd);
+                importedEmployees.add(saved);
                 imported++;
             } catch (DomainException ex) {
                 if (ex.error() instanceof DomainError.Conflict) {
@@ -134,7 +136,7 @@ public class EmployeeApplicationService implements EmployeeUseCase {
                 errors.add(new EmployeeUseCase.ImportRowError(row, cmd.email(), ex.getMessage()));
             }
         }
-        return new EmployeeUseCase.ImportResult(imported, skipped, errors);
+        return new EmployeeUseCase.ImportResult(imported, skipped, errors, importedEmployees);
     }
 
     // -------------------------------------------------------------------------
