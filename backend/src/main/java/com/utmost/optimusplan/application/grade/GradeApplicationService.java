@@ -34,7 +34,7 @@ public class GradeApplicationService implements GradeUseCase {
                 .id(UUID.randomUUID())
                 .gradeId(saved.getId())
                 .dailyCost(cmd.dailyCost())
-                .effectiveFrom(LocalDate.now())
+                .effectiveFrom(cmd.effectiveFrom() != null ? cmd.effectiveFrom() : LocalDate.now())
                 .build());
         return saved;
     }

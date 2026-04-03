@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { NzTableModule } from 'ng-zorro-antd/table';
@@ -59,10 +59,9 @@ import { GradeDTO, GradeHistoryDTO, CostHistoryDTO } from '../../core/models/gra
     <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
       <app-search-bar placeholder="Search employees..." (searchChange)="onSearch($event)"></app-search-bar>
       <div style="display: flex; gap: 8px;">
-        <button nz-button nzType="default" (click)="triggerFileInput()">
+        <button nz-button nzType="default" (click)="openImportModal()">
           <span nz-icon nzType="upload"></span> Import CSV
         </button>
-        <input #csvInput type="file" accept=".csv" style="display:none" (change)="onFileSelected($event)" />
         <button nz-button nzType="primary" (click)="openModal()">
           <span nz-icon nzType="plus"></span> Add Employee
         </button>
@@ -157,45 +156,58 @@ import { GradeDTO, GradeHistoryDTO, CostHistoryDTO } from '../../core/models/gra
       </ng-container>
     </nz-modal>
 
-    <!-- Import Result Modal -->
+    <!-- Import CSV Modal -->
     <nz-modal
-      [(nzVisible)]="importResultVisible"
-      nzTitle="CSV Import Result"
+      [(nzVisible)]="importModalVisible"
+      nzTitle="Import Employees from CSV"
+      (nzOnCancel)="importModalVisible = false"
       [nzFooter]="null"
-      (nzOnCancel)="closeImportResult()"
     >
       <ng-container *nzModalContent>
-        @if (importing) {
-          <div style="text-align:center; padding: 24px;">
-            <nz-spin nzSimple></nz-spin>
-            <p style="margin-top: 12px;">Importing employees…</p>
-          </div>
-        } @else if (importResult) {
-          <div style="margin-bottom: 16px; display: flex; gap: 24px;">
-            <div><strong style="color:#52c41a; font-size:24px;">{{ importResult.imported }}</strong><br/>Imported</div>
-            <div><strong style="color:#faad14; font-size:24px;">{{ importResult.skipped }}</strong><br/>Skipped (duplicate)</div>
-            <div><strong style="color:#ff4d4f; font-size:24px;">{{ importResult.errors.length }}</strong><br/>Errors</div>
-          </div>
-          @if (importResult.errors.length > 0) {
-            <nz-table [nzData]="importResult.errors" [nzSize]="'small'" [nzBordered]="true" [nzPageSize]="10">
-              <thead>
-                <tr><th>Row</th><th>Email</th><th>Reason</th></tr>
-              </thead>
-              <tbody>
+        <p style="margin-bottom:8px;">Upload a CSV file with the following columns (header row required):</p>
+        <code style="display:block; background:#f5f5f5; padding:8px; border-radius:4px; font-size:12px; margin-bottom:16px;">
+          firstName, lastName, email
+        </code>
+
+        <button nz-button style="margin-bottom:16px;" (click)="downloadTemplate()">
+          <span nz-icon nzType="download"></span> Download Template
+        </button>
+
+        <div
+          style="border:2px dashed #d9d9d9; border-radius:4px; padding:24px; text-align:center; cursor:pointer;"
+          (click)="fileInput.click()"
+          (dragover)="$event.preventDefault()"
+          (drop)="onFileDrop($event)"
+        >
+          <span nz-icon nzType="inbox" style="font-size:32px; color:#40a9ff;"></span>
+          <p style="margin:8px 0 4px;">Click or drag CSV file here</p>
+          <p style="font-size:12px; color:#888;">{{ importFile ? importFile.name : 'No file selected' }}</p>
+        </div>
+        <input #fileInput type="file" accept=".csv" style="display:none" (change)="onFileSelect($event)">
+
+        @if (importResult) {
+          <div style="margin-top:16px;">
+            <div style="display:flex; gap:24px; margin-bottom:12px;">
+              <div><strong style="color:#52c41a; font-size:20px;">{{ importResult.imported }}</strong><br/><small>Imported</small></div>
+              <div><strong style="color:#faad14; font-size:20px;">{{ importResult.skipped }}</strong><br/><small>Skipped (duplicate)</small></div>
+              <div><strong style="color:#ff4d4f; font-size:20px;">{{ importResult.errors.length }}</strong><br/><small>Errors</small></div>
+            </div>
+            @if (importResult.errors.length > 0) {
+              <ul style="font-size:12px; color:#ff4d4f; max-height:150px; overflow-y:auto; padding-left:16px;">
                 @for (err of importResult.errors; track err.row) {
-                  <tr>
-                    <td>{{ err.row }}</td>
-                    <td>{{ err.email }}</td>
-                    <td><nz-tag nzColor="error">{{ err.reason }}</nz-tag></td>
-                  </tr>
+                  <li>Row {{ err.row }} — {{ err.email }}: {{ err.reason }}</li>
                 }
-              </tbody>
-            </nz-table>
-          }
-          <div style="text-align:right; margin-top:16px;">
-            <button nz-button nzType="primary" (click)="closeImportResult()">Close</button>
+              </ul>
+            }
           </div>
         }
+
+        <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+          <button nz-button (click)="importModalVisible = false">Cancel</button>
+          <button nz-button nzType="primary" [disabled]="!importFile" [nzLoading]="importing" (click)="submitImport()">
+            Import
+          </button>
+        </div>
       </ng-container>
     </nz-modal>
 
@@ -440,7 +452,6 @@ import { GradeDTO, GradeHistoryDTO, CostHistoryDTO } from '../../core/models/gra
   `,
 })
 export class EmployeesPageComponent implements OnInit {
-  @ViewChild('csvInput') csvInput!: ElementRef<HTMLInputElement>;
 
   private employeeService = inject(EmployeeService);
   private assignmentService = inject(AssignmentService);
@@ -458,7 +469,8 @@ export class EmployeesPageComponent implements OnInit {
   importing = false;
   modalVisible = false;
   drawerVisible = false;
-  importResultVisible = false;
+  importModalVisible = false;
+  importFile: File | null = null;
   employees: EmployeeDTO[] = [];
   filteredEmployees: EmployeeDTO[] = [];
   editingEmployee: EmployeeDTO | null = null;
@@ -888,18 +900,27 @@ export class EmployeesPageComponent implements OnInit {
     this.editingCostEntryId = null;
   }
 
-  triggerFileInput(): void {
-    this.csvInput.nativeElement.value = '';
-    this.csvInput.nativeElement.click();
+  openImportModal(): void {
+    this.importFile = null;
+    this.importResult = null;
+    this.importModalVisible = true;
   }
 
-  onFileSelected(event: Event): void {
+  onFileSelect(event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
+    if (file) { this.importFile = file; this.importResult = null; }
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    const file = event.dataTransfer?.files[0];
+    if (file) { this.importFile = file; this.importResult = null; }
+  }
+
+  submitImport(): void {
+    if (!this.importFile) return;
     this.importing = true;
-    this.importResult = null;
-    this.importResultVisible = true;
-    this.employeeService.importEmployees(file).subscribe({
+    this.employeeService.importEmployees(this.importFile).subscribe({
       next: result => {
         this.importing = false;
         this.importResult = result;
@@ -907,14 +928,18 @@ export class EmployeesPageComponent implements OnInit {
       },
       error: () => {
         this.importing = false;
-        this.importResultVisible = false;
         this.message.error('Failed to import CSV');
       },
     });
   }
 
-  closeImportResult(): void {
-    this.importResultVisible = false;
-    this.importResult = null;
+  downloadTemplate(): void {
+    const csv = 'firstName,lastName,email\nJohn,Doe,john.doe@example.com\n';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'employees-template.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 }

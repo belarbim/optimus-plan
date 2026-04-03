@@ -20,7 +20,7 @@ public class GradeController {
     private final GradeUseCase gradeUseCase;
     private final GradeCostUseCase gradeCostUseCase;
 
-    record GradeRequest(@NotBlank String name, @NotNull BigDecimal dailyCost) {}
+    record GradeRequest(@NotBlank String name, @NotNull BigDecimal dailyCost, LocalDate effectiveFrom) {}
     record GradeUpdateRequest(@NotBlank String name) {}
     record GradeResponse(UUID id, String name, BigDecimal dailyCost) {
         static GradeResponse from(Grade g) { return new GradeResponse(g.getId(), g.getName(), g.getDailyCost()); }
@@ -38,7 +38,7 @@ public class GradeController {
 
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public GradeResponse create(@Valid @RequestBody GradeRequest req) {
-        return GradeResponse.from(gradeUseCase.create(new GradeUseCase.CreateGradeCommand(req.name(), req.dailyCost())));
+        return GradeResponse.from(gradeUseCase.create(new GradeUseCase.CreateGradeCommand(req.name(), req.dailyCost(), req.effectiveFrom())));
     }
 
     @PutMapping("/{id}")

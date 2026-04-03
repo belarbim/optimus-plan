@@ -118,6 +118,12 @@ import { GradeDTO, GradeCostHistoryDTO } from '../../core/models/grade.model';
                 ></nz-input-number>
               </nz-form-control>
             </nz-form-item>
+            <nz-form-item>
+              <nz-form-label nzRequired>Effective From</nz-form-label>
+              <nz-form-control nzErrorTip="Date is required">
+                <nz-date-picker formControlName="effectiveFrom" nzFormat="yyyy-MM-dd" style="width:100%"></nz-date-picker>
+              </nz-form-control>
+            </nz-form-item>
           }
         </form>
       </ng-container>
@@ -224,6 +230,7 @@ export class GradesPageComponent implements OnInit {
     this.form = this.fb.group({
       name: ['', Validators.required],
       dailyCost: [null],
+      effectiveFrom: [null],
     });
     this.costHistoryForm = this.fb.group({
       dailyCost: [null, [Validators.required, Validators.min(0)]],
@@ -247,13 +254,17 @@ export class GradesPageComponent implements OnInit {
   openModal(grade?: GradeDTO): void {
     this.editingGrade = grade ?? null;
     if (grade) {
-      this.form.patchValue({ name: grade.name, dailyCost: null });
+      this.form.patchValue({ name: grade.name, dailyCost: null, effectiveFrom: null });
       this.form.get('dailyCost')?.clearValidators();
       this.form.get('dailyCost')?.updateValueAndValidity();
+      this.form.get('effectiveFrom')?.clearValidators();
+      this.form.get('effectiveFrom')?.updateValueAndValidity();
     } else {
       this.form.reset();
       this.form.get('dailyCost')?.setValidators([Validators.required, Validators.min(0)]);
       this.form.get('dailyCost')?.updateValueAndValidity();
+      this.form.get('effectiveFrom')?.setValidators([Validators.required]);
+      this.form.get('effectiveFrom')?.updateValueAndValidity();
     }
     this.modalVisible = true;
   }
@@ -271,9 +282,12 @@ export class GradesPageComponent implements OnInit {
     }
     this.saving = true;
     const val = this.form.value;
+    const effectiveFrom = val.effectiveFrom instanceof Date
+      ? val.effectiveFrom.toISOString().split('T')[0]
+      : val.effectiveFrom;
     const req = this.editingGrade
       ? this.gradeService.update(this.editingGrade.id, { name: val.name })
-      : this.gradeService.create({ name: val.name, dailyCost: val.dailyCost });
+      : this.gradeService.create({ name: val.name, dailyCost: val.dailyCost, effectiveFrom });
 
     req.subscribe({
       next: () => {
