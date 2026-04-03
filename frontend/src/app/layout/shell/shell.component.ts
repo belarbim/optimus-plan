@@ -124,6 +124,7 @@ export class ShellComponent {
     { path: '/assignments', label: 'Assignments', icon: 'schedule' },
     { path: '/capacity', label: 'Capacity', icon: 'bar-chart' },
     { path: '/snapshots', label: 'Snapshots', icon: 'camera' },
+    { path: '/grades', label: 'Grades', icon: 'dollar' },
     { path: '/role-types', label: 'Role Types', icon: 'setting' },
     { path: '/public-holidays', label: 'Public Holidays', icon: 'calendar' },
     { path: '/working-days', label: 'Working Days', icon: 'calendar' },

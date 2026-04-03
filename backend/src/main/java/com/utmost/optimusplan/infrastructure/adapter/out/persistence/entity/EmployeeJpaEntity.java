@@ -28,6 +28,9 @@ public class EmployeeJpaEntity {
     @Column(unique = true)
     private String email;
 
+    @Column(name = "type", nullable = false)
+    private String type;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

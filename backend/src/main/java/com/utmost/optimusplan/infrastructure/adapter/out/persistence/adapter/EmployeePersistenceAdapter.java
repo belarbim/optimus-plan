@@ -54,6 +54,7 @@ public class EmployeePersistenceAdapter implements EmployeeRepositoryPort {
                 .firstName(e.getFirstName())
                 .lastName(e.getLastName())
                 .email(e.getEmail())
+                .type(e.getType())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
                 .build();
@@ -67,6 +68,7 @@ public class EmployeePersistenceAdapter implements EmployeeRepositoryPort {
         entity.setFirstName(employee.getFirstName());
         entity.setLastName(employee.getLastName());
         entity.setEmail(employee.getEmail());
+        entity.setType(employee.getType() != null ? employee.getType() : "INTERNAL");
         return entity;
     }
 }

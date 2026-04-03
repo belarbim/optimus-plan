@@ -38,6 +38,11 @@ export const routes: Routes = [
           import('./features/snapshots/snapshots-page.component').then(m => m.SnapshotsPageComponent),
       },
       {
+        path: 'grades',
+        loadComponent: () =>
+          import('./features/grades/grades-page.component').then(m => m.GradesPageComponent),
+      },
+      {
         path: 'role-types',
         loadComponent: () =>
           import('./features/role-types/role-types-page.component').then(m => m.RoleTypesPageComponent),

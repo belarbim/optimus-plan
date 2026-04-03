@@ -37,12 +37,14 @@ public class EmployeeController {
     record CreateEmployeeRequest(
             @NotBlank String firstName,
             @NotBlank String lastName,
-            @Email @NotBlank String email) {}
+            @Email @NotBlank String email,
+            String type) {}
 
     record UpdateEmployeeRequest(
             @NotBlank String firstName,
             @NotBlank String lastName,
-            @Email @NotBlank String email) {}
+            @Email @NotBlank String email,
+            String type) {}
 
     record AssignmentResponse(
             UUID id,
@@ -61,6 +63,7 @@ public class EmployeeController {
             String firstName,
             String lastName,
             String email,
+            String type,
             BigDecimal totalAllocation,
             List<AssignmentResponse> assignments,
             String createdAt) {
@@ -74,6 +77,7 @@ public class EmployeeController {
                     employee.getFirstName(),
                     employee.getLastName(),
                     employee.getEmail(),
+                    employee.getType(),
                     totalAllocation,
                     assignments,
                     employee.getCreatedAt() != null ? employee.getCreatedAt().toString() : null);
@@ -84,7 +88,7 @@ public class EmployeeController {
     @ResponseStatus(HttpStatus.CREATED)
     public EmployeeResponse create(@Valid @RequestBody CreateEmployeeRequest req) {
         Employee employee = employeeUseCase.create(
-                new EmployeeUseCase.CreateEmployeeCommand(req.firstName(), req.lastName(), req.email()));
+                new EmployeeUseCase.CreateEmployeeCommand(req.firstName(), req.lastName(), req.email(), req.type()));
         return buildResponse(employee);
     }
 
@@ -103,7 +107,7 @@ public class EmployeeController {
     @PutMapping("/{id}")
     public EmployeeResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateEmployeeRequest req) {
         Employee employee = employeeUseCase.update(
-                new EmployeeUseCase.UpdateEmployeeCommand(id, req.firstName(), req.lastName(), req.email()));
+                new EmployeeUseCase.UpdateEmployeeCommand(id, req.firstName(), req.lastName(), req.email(), req.type()));
         return buildResponse(employee);
     }
 
@@ -161,7 +165,8 @@ public class EmployeeController {
                 commands.add(new EmployeeUseCase.CreateEmployeeCommand(
                         line[fiIdx].trim(),
                         line[laIdx].trim(),
-                        line[maIdx].trim()));
+                        line[maIdx].trim(),
+                        null));
             }
             return commands;
         }

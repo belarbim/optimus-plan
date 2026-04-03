@@ -16,7 +16,8 @@
       "Bash(npx tsc:*)",
       "Read(//Users/mohamedbelarbi/development/**)",
       "Bash(mvn compile:*)",
-      "Bash(grep -l \"nz-tabset\\\\|tabset\" /Users/mohamedbelarbi/development/optimus-plan/frontend/node_modules/ng-zorro-antd/fesm2022/*.mjs)"
+      "Bash(grep -l \"nz-tabset\\\\|tabset\" /Users/mohamedbelarbi/development/optimus-plan/frontend/node_modules/ng-zorro-antd/fesm2022/*.mjs)",
+      "Bash(ng build:*)"
     ]
   }
 }

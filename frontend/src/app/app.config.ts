@@ -40,6 +40,7 @@ import {
   ToolOutline,
   InfoCircleOutline,
   WarningOutline,
+  DollarOutline,
 } from '@ant-design/icons-angular/icons';
 
 registerLocaleData(en);
@@ -77,6 +78,7 @@ const icons = [
   ToolOutline,
   InfoCircleOutline,
   WarningOutline,
+  DollarOutline,
 ];
 
 export const appConfig: ApplicationConfig = {

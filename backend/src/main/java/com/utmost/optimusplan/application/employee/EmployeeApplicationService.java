@@ -50,6 +50,7 @@ public class EmployeeApplicationService implements EmployeeUseCase {
                 .firstName(cmd.firstName())
                 .lastName(cmd.lastName())
                 .email(cmd.email())
+                .type(cmd.type() != null ? cmd.type() : "INTERNAL")
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -74,6 +75,7 @@ public class EmployeeApplicationService implements EmployeeUseCase {
         employee.setFirstName(cmd.firstName());
         employee.setLastName(cmd.lastName());
         employee.setEmail(cmd.email());
+        employee.setType(cmd.type() != null ? cmd.type() : employee.getType());
         employee.setUpdatedAt(LocalDateTime.now());
 
         Employee saved = employeeRepo.save(employee);

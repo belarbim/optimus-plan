@@ -7,9 +7,9 @@ import java.util.UUID;
 
 public interface EmployeeUseCase {
 
-    record CreateEmployeeCommand(String firstName, String lastName, String email) {}
+    record CreateEmployeeCommand(String firstName, String lastName, String email, String type) {}
 
-    record UpdateEmployeeCommand(UUID id, String firstName, String lastName, String email) {}
+    record UpdateEmployeeCommand(UUID id, String firstName, String lastName, String email, String type) {}
 
     record ImportRowError(int row, String email, String reason) {}
 

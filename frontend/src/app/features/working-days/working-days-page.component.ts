@@ -3,12 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NzTableModule } from 'ng-zorro-antd/table';
 import { NzButtonModule } from 'ng-zorro-antd/button';
-import { NzUploadModule, NzUploadFile } from 'ng-zorro-antd/upload';
+import { NzModalModule } from 'ng-zorro-antd/modal';
 import { NzMessageService } from 'ng-zorro-antd/message';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzSpinModule } from 'ng-zorro-antd/spin';
-import { NzCardModule } from 'ng-zorro-antd/card';
-import { NzAlertModule } from 'ng-zorro-antd/alert';
 import { NzTagModule } from 'ng-zorro-antd/tag';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { NzInputNumberModule } from 'ng-zorro-antd/input-number';
@@ -39,11 +37,9 @@ interface MonthRow {
     FormsModule,
     NzTableModule,
     NzButtonModule,
-    NzUploadModule,
+    NzModalModule,
     NzIconModule,
     NzSpinModule,
-    NzCardModule,
-    NzAlertModule,
     NzTagModule,
     NzSelectModule,
     NzInputNumberModule,
@@ -56,43 +52,20 @@ interface MonthRow {
       subtitle="Configure average working days per month — used in capacity computation"
     ></app-page-header>
 
-    <!-- Year selector + CSV import -->
-    <nz-card style="margin-bottom:16px;">
-      <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
-        <div style="display:flex; gap:12px; align-items:center;">
-          <label style="font-weight:500;">Year:</label>
-          <nz-select [(ngModel)]="selectedYear" style="width:100px" (ngModelChange)="loadYear()">
-            @for (y of availableYears; track y) {
-              <nz-option [nzValue]="y" [nzLabel]="y.toString()"></nz-option>
-            }
-          </nz-select>
-        </div>
-
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <nz-upload [nzBeforeUpload]="beforeUpload" [nzShowUploadList]="false" nzAccept=".csv">
-            <button nz-button>
-              <span nz-icon nzType="upload"></span> Import CSV
-            </button>
-          </nz-upload>
-          @if (selectedFile) {
-            <span style="color:#666;">{{ selectedFile.name }}</span>
-            <button nz-button nzType="primary" (click)="importCsv()" [nzLoading]="importing">
-              Upload
-            </button>
+    <!-- Year selector + actions -->
+    <div style="margin-bottom:16px; display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+      <div style="display:flex; gap:12px; align-items:center;">
+        <label style="font-weight:500;">Year:</label>
+        <nz-select [(ngModel)]="selectedYear" style="width:100px" (ngModelChange)="loadYear()">
+          @for (y of availableYears; track y) {
+            <nz-option [nzValue]="y" [nzLabel]="y.toString()"></nz-option>
           }
-          <button nz-button nzType="default" (click)="downloadTemplate()">
-            <span nz-icon nzType="download"></span> CSV Template
-          </button>
-        </div>
+        </nz-select>
       </div>
-      <div style="margin-top:10px;">
-        <nz-alert
-          nzType="info"
-          nzMessage="CSV format: month (YYYY-MM), avgDaysWorked — used to override calendar business days in capacity computation."
-          nzShowIcon
-        ></nz-alert>
-      </div>
-    </nz-card>
+      <button nz-button (click)="openImportModal()">
+        <span nz-icon nzType="upload"></span> Import CSV
+      </button>
+    </div>
 
     <!-- 12-month table -->
     <nz-spin [nzSpinning]="loading">
@@ -162,6 +135,58 @@ interface MonthRow {
         </tbody>
       </nz-table>
     </nz-spin>
+
+    <!-- Import CSV Modal -->
+    <nz-modal
+      [(nzVisible)]="importModalVisible"
+      nzTitle="Import Working Days from CSV"
+      (nzOnCancel)="importModalVisible = false"
+      [nzFooter]="null"
+    >
+      <ng-container *nzModalContent>
+        <p style="margin-bottom:8px;">
+          Upload a CSV file with the following columns (header row required):
+        </p>
+        <code style="display:block; background:#f5f5f5; padding:8px; border-radius:4px; font-size:12px; margin-bottom:16px;">
+          month, avgDaysWorked
+        </code>
+        <p style="font-size:12px; color:#888; margin-bottom:16px;">
+          month format: YYYY-MM (e.g. 2025-01). avgDaysWorked is a number between 0 and 31.
+        </p>
+
+        <button nz-button style="margin-bottom:16px;" (click)="downloadTemplate()">
+          <span nz-icon nzType="download"></span> Download Template
+        </button>
+
+        <div
+          style="border:2px dashed #d9d9d9; border-radius:4px; padding:24px; text-align:center; cursor:pointer;"
+          (click)="fileInput.click()"
+          (dragover)="$event.preventDefault()"
+          (drop)="onFileDrop($event)"
+        >
+          <span nz-icon nzType="inbox" style="font-size:32px; color:#40a9ff;"></span>
+          <p style="margin:8px 0 4px;">Click or drag CSV file here</p>
+          <p style="font-size:12px; color:#888;">{{ importFile ? importFile.name : 'No file selected' }}</p>
+        </div>
+        <input #fileInput type="file" accept=".csv" style="display:none" (change)="onFileSelect($event)">
+
+        @if (importResult !== null) {
+          <div style="margin-top:16px;">
+            <p>
+              <span nz-icon nzType="check-circle" style="color:#52c41a;"></span>
+              {{ importResult }} record(s) imported successfully
+            </p>
+          </div>
+        }
+
+        <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+          <button nz-button (click)="importModalVisible = false">Cancel</button>
+          <button nz-button nzType="primary" [disabled]="!importFile" [nzLoading]="importing" (click)="submitImport()">
+            Import
+          </button>
+        </div>
+      </ng-container>
+    </nz-modal>
   `,
 })
 export class WorkingDaysPageComponent implements OnInit {
@@ -170,7 +195,9 @@ export class WorkingDaysPageComponent implements OnInit {
 
   loading = false;
   importing = false;
-  selectedFile: File | null = null;
+  importModalVisible = false;
+  importFile: File | null = null;
+  importResult: number | null = null;
   selectedYear = new Date().getFullYear();
   availableYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i);
   rows: MonthRow[] = [];
@@ -222,20 +249,34 @@ export class WorkingDaysPageComponent implements OnInit {
     });
   }
 
-  beforeUpload = (file: NzUploadFile): boolean => {
-    this.selectedFile = file as unknown as File;
-    return false;
-  };
+  openImportModal(): void {
+    this.importFile = null;
+    this.importResult = null;
+    this.importModalVisible = true;
+  }
 
-  importCsv(): void {
-    if (!this.selectedFile) return;
+  onFileSelect(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files?.length) {
+      this.importFile = input.files[0];
+      this.importResult = null;
+    }
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    const file = event.dataTransfer?.files[0];
+    if (file) { this.importFile = file; this.importResult = null; }
+  }
+
+  submitImport(): void {
+    if (!this.importFile) return;
     this.importing = true;
-    this.workingDaysService.importCsv(this.selectedFile).subscribe({
+    this.workingDaysService.importCsv(this.importFile).subscribe({
       next: d => {
-        this.message.success(`Imported ${d.length} records`);
+        this.importResult = d.length;
         this.importing = false;
-        this.selectedFile = null;
-        this.loadYear();
+        if (d.length > 0) this.loadYear();
       },
       error: () => { this.message.error('Import failed'); this.importing = false; },
     });
