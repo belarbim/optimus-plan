@@ -6,12 +6,6 @@ import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { CommonModule } from '@angular/common';
 
-interface NavItem {
-  path: string;
-  label: string;
-  icon: string;
-}
-
 @Component({
   selector: 'app-shell',
   standalone: true,
@@ -32,8 +26,8 @@ interface NavItem {
         [nzCollapsed]="collapsed()"
         (nzCollapsedChange)="collapsed.set($event)"
         nzTheme="dark"
-        [nzWidth]="220"
-        [nzCollapsedWidth]="64"
+        [nzWidth]="200"
+        [nzCollapsedWidth]="52"
       >
         <div class="logo">
           @if (!collapsed()) {
@@ -42,24 +36,74 @@ interface NavItem {
             <span class="logo-icon">OP</span>
           }
         </div>
-        <ul nz-menu nzTheme="dark" nzMode="inline">
-          @for (item of navItems; track item.path) {
-            <li nz-menu-item [routerLink]="item.path" routerLinkActive="ant-menu-item-selected">
-              <span nz-icon [nzType]="item.icon"></span>
-              <span>{{ item.label }}</span>
-            </li>
-          }
+
+        <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineIndent]="16">
+
+          <li nz-menu-item [routerLink]="'/dashboard'" routerLinkActive="ant-menu-item-selected">
+            <span nz-icon nzType="dashboard"></span>
+            <span>Dashboard</span>
+          </li>
+
+          <li nz-submenu nzTitle="Organization" nzIcon="team" [nzOpen]="!collapsed()">
+            <ul>
+              <li nz-menu-item [routerLink]="'/teams'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="apartment"></span><span>Teams</span>
+              </li>
+              <li nz-menu-item [routerLink]="'/employees'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="user"></span><span>Employees</span>
+              </li>
+              <li nz-menu-item [routerLink]="'/assignments'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="schedule"></span><span>Assignments</span>
+              </li>
+            </ul>
+          </li>
+
+          <li nz-submenu nzTitle="Capacity" nzIcon="bar-chart" [nzOpen]="!collapsed()">
+            <ul>
+              <li nz-menu-item [routerLink]="'/capacity'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="bar-chart"></span><span>Capacity</span>
+              </li>
+              <li nz-menu-item [routerLink]="'/working-days'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="calendar"></span><span>Working Days</span>
+              </li>
+              <li nz-menu-item [routerLink]="'/public-holidays'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="calendar"></span><span>Public Holidays</span>
+              </li>
+              <li nz-menu-item [routerLink]="'/snapshots'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="camera"></span><span>Snapshots</span>
+              </li>
+            </ul>
+          </li>
+
+          <li nz-submenu nzTitle="Configuration" nzIcon="setting" [nzOpen]="!collapsed()">
+            <ul>
+              <li nz-menu-item [routerLink]="'/grades'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="dollar"></span><span>Grades</span>
+              </li>
+              <li nz-menu-item [routerLink]="'/role-types'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="tool"></span><span>Role Types</span>
+              </li>
+            </ul>
+          </li>
+
+          <li nz-submenu nzTitle="System" nzIcon="cluster" [nzOpen]="!collapsed()">
+            <ul>
+              <li nz-menu-item [routerLink]="'/alerts'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="bell"></span><span>Alerts</span>
+              </li>
+              <li nz-menu-item [routerLink]="'/audit'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="audit"></span><span>Audit Log</span>
+              </li>
+            </ul>
+          </li>
+
         </ul>
       </nz-sider>
+
       <nz-layout>
         <nz-header class="app-header">
-          <button
-            nz-button
-            nzType="text"
-            (click)="collapsed.set(!collapsed())"
-            class="trigger-btn"
-          >
-            <span nz-icon [nzType]="collapsed() ? 'menu-unfold' : 'menu-fold'" style="font-size:18px; color:#fff"></span>
+          <button nz-button nzType="text" (click)="collapsed.set(!collapsed())" class="trigger-btn">
+            <span nz-icon [nzType]="collapsed() ? 'menu-unfold' : 'menu-fold'" style="font-size:16px; color:#fff"></span>
           </button>
           <span class="header-title">Capacity Management System</span>
         </nz-header>
@@ -68,7 +112,7 @@ interface NavItem {
             <router-outlet />
           </div>
         </nz-content>
-        <nz-footer style="text-align:center; background:#f0f2f5;">
+        <nz-footer style="text-align:center; background:#f0f2f5; padding: 12px;">
           Optimus Plan &copy; {{ currentYear }}
         </nz-footer>
       </nz-layout>
@@ -76,59 +120,64 @@ interface NavItem {
   `,
   styles: [`
     .logo {
-      height: 64px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #fff;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: bold;
       border-bottom: 1px solid rgba(255,255,255,0.1);
       overflow: hidden;
       white-space: nowrap;
     }
-    .logo-text { padding: 0 16px; }
-    .logo-icon { font-size: 18px; }
+    .logo-text { padding: 0 12px; }
+    .logo-icon { font-size: 16px; }
+
     .app-header {
       background: #001529;
       display: flex;
       align-items: center;
       padding: 0 16px;
-      gap: 16px;
+      gap: 12px;
+      height: 52px;
+      line-height: 52px;
     }
     .trigger-btn { color: #fff; }
     .header-title {
       color: #fff;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 500;
     }
     .content-area {
-      margin: 24px 16px;
+      margin: 16px;
     }
     .inner-content {
-      padding: 24px;
+      padding: 20px;
       background: #fff;
       min-height: 360px;
       border-radius: 4px;
+    }
+
+    /* Compact menu items */
+    :host ::ng-deep .ant-menu-dark .ant-menu-item {
+      height: 34px;
+      line-height: 34px;
+      font-size: 13px;
+      margin: 0;
+    }
+    :host ::ng-deep .ant-menu-dark .ant-menu-submenu-title {
+      height: 36px;
+      line-height: 36px;
+      font-size: 13px;
+      margin: 0;
+    }
+    :host ::ng-deep .ant-menu-dark.ant-menu-inline .ant-menu-item {
+      margin: 0;
     }
   `],
 })
 export class ShellComponent {
   collapsed = signal(false);
   currentYear = new Date().getFullYear();
-
-  navItems: NavItem[] = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/teams', label: 'Teams', icon: 'team' },
-    { path: '/employees', label: 'Employees', icon: 'user' },
-    { path: '/assignments', label: 'Assignments', icon: 'schedule' },
-    { path: '/capacity', label: 'Capacity', icon: 'bar-chart' },
-    { path: '/snapshots', label: 'Snapshots', icon: 'camera' },
-    { path: '/grades', label: 'Grades', icon: 'dollar' },
-    { path: '/role-types', label: 'Role Types', icon: 'setting' },
-    { path: '/public-holidays', label: 'Public Holidays', icon: 'calendar' },
-    { path: '/working-days', label: 'Working Days', icon: 'calendar' },
-    { path: '/alerts', label: 'Alerts', icon: 'bell' },
-    { path: '/audit', label: 'Audit Log', icon: 'audit' },
-  ];
 }
