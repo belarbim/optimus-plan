@@ -191,3 +191,17 @@ CREATE TABLE audit_log (
 CREATE INDEX idx_audit_entity    ON audit_log(entity_type, entity_id);
 CREATE INDEX idx_audit_timestamp ON audit_log(timestamp);
 CREATE INDEX idx_audit_actor     ON audit_log(actor);
+
+--changeset optimus:002-application
+
+CREATE TABLE application (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        VARCHAR(255) NOT NULL UNIQUE,
+    description VARCHAR(1000),
+    team_id     UUID REFERENCES team(id) ON DELETE SET NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_application_team ON application(team_id);
+CREATE INDEX idx_application_name ON application(name);

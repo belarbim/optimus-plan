@@ -55,6 +55,9 @@ import { CommonModule } from '@angular/common';
               <li nz-menu-item [routerLink]="'/assignments'" routerLinkActive="ant-menu-item-selected">
                 <span nz-icon nzType="schedule"></span><span>Assignments</span>
               </li>
+              <li nz-menu-item [routerLink]="'/applications'" routerLinkActive="ant-menu-item-selected">
+                <span nz-icon nzType="appstore"></span><span>Applications</span>
+              </li>
             </ul>
           </li>
 

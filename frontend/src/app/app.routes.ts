@@ -18,6 +18,11 @@ export const routes: Routes = [
           import('./features/teams/teams-page.component').then(m => m.TeamsPageComponent),
       },
       {
+        path: 'applications',
+        loadComponent: () =>
+          import('./features/applications/applications-page.component').then(m => m.ApplicationsPageComponent),
+      },
+      {
         path: 'employees',
         loadComponent: () =>
           import('./features/employees/employees-page.component').then(m => m.EmployeesPageComponent),

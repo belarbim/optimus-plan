@@ -18,7 +18,10 @@
       "Bash(mvn compile:*)",
       "Bash(grep -l \"nz-tabset\\\\|tabset\" /Users/mohamedbelarbi/development/optimus-plan/frontend/node_modules/ng-zorro-antd/fesm2022/*.mjs)",
       "Bash(ng build:*)",
-      "Bash(xargs basename:*)"
+      "Bash(xargs basename:*)",
+      "Bash(pandoc --list-output-formats)",
+      "Bash(npx --yes md-to-pdf --version)",
+      "Bash(npm list:*)"
     ]
   }
 }
